@@ -102,12 +102,28 @@ export default function DayOffsPage() {
             .select('*')
 
         if (targets && targets.length > 0) {
-            // Group targets by member, use the most recent
+            // Group targets by member, use the target for the current month's week
             const targetMap: Record<string, number> = {}
+            const currentMonthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
+            const currentMonthEnd = format(endOfMonth(currentMonth), 'yyyy-MM-dd')
+
+            // First pass: find targets within the current month
             targets.forEach((t: Target) => {
-                // Keep the latest target per member
-                targetMap[t.user_gid] = t.target_points
+                if (t.week_start_date >= currentMonthStart && t.week_start_date <= currentMonthEnd) {
+                    // Use the first (earliest) target in the current month
+                    if (!targetMap[t.user_gid]) {
+                        targetMap[t.user_gid] = Number(t.target_points) || DEFAULT_TARGET_PER_WEEK
+                    }
+                }
             })
+
+            // Second pass: for members without a target in the current month, use the closest target
+            targets.forEach((t: Target) => {
+                if (!targetMap[t.user_gid]) {
+                    targetMap[t.user_gid] = Number(t.target_points) || DEFAULT_TARGET_PER_WEEK
+                }
+            })
+
             setMemberTargets(targetMap)
         }
     }
