@@ -43,7 +43,7 @@ export default function DayOffsPage() {
     const [adding, setAdding] = useState(false)
     const [members, setMembers] = useState<string[]>([])
     const [selectedMember, setSelectedMember] = useState<string>('')
-    const [memberTargets, setMemberTargets] = useState<Record<string, number>>({})
+    const [allTargets, setAllTargets] = useState<Target[]>([])
     const supabase = createClient()
 
     const isAdmin = user?.role === 'admin' || user?.role === 'lead'
@@ -96,35 +96,14 @@ export default function DayOffsPage() {
             }
         }
 
-        // Fetch targets for all members
+        // Fetch targets for all members (store raw data, compute dynamically per month)
         const { data: targets } = await supabase
             .from('targets')
             .select('*')
+            .eq('project_type', 'creative')
 
         if (targets && targets.length > 0) {
-            // Group targets by member, use the target for the current month's week
-            const targetMap: Record<string, number> = {}
-            const currentMonthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
-            const currentMonthEnd = format(endOfMonth(currentMonth), 'yyyy-MM-dd')
-
-            // First pass: find targets within the current month
-            targets.forEach((t: Target) => {
-                if (t.week_start_date >= currentMonthStart && t.week_start_date <= currentMonthEnd) {
-                    // Use the first (earliest) target in the current month
-                    if (!targetMap[t.user_gid]) {
-                        targetMap[t.user_gid] = Number(t.target_points) || DEFAULT_TARGET_PER_WEEK
-                    }
-                }
-            })
-
-            // Second pass: for members without a target in the current month, use the closest target
-            targets.forEach((t: Target) => {
-                if (!targetMap[t.user_gid]) {
-                    targetMap[t.user_gid] = Number(t.target_points) || DEFAULT_TARGET_PER_WEEK
-                }
-            })
-
-            setMemberTargets(targetMap)
+            setAllTargets(targets)
         }
     }
 
@@ -151,9 +130,24 @@ export default function DayOffsPage() {
         if (data) setDayOffs(data)
     }
 
-    // Get the target for the selected member
+    // Get the target for the selected member based on the currently viewed month
     const getMemberWeeklyTarget = (member: string): number => {
-        return memberTargets[member] || DEFAULT_TARGET_PER_WEEK
+        const monthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
+        const monthEnd = format(endOfMonth(currentMonth), 'yyyy-MM-dd')
+
+        // Find target for this member within the viewed month
+        const monthTarget = allTargets.find(t =>
+            t.user_gid === member &&
+            t.week_start_date >= monthStart &&
+            t.week_start_date <= monthEnd
+        )
+        if (monthTarget) return Number(monthTarget.target_points) || DEFAULT_TARGET_PER_WEEK
+
+        // Fallback: find any target for this member
+        const anyTarget = allTargets.find(t => t.user_gid === member)
+        if (anyTarget) return Number(anyTarget.target_points) || DEFAULT_TARGET_PER_WEEK
+
+        return DEFAULT_TARGET_PER_WEEK
     }
 
     const getPointsPerDay = (member: string): number => {
