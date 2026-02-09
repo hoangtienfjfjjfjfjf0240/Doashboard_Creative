@@ -8,6 +8,7 @@ export const POINT_CONFIG: Record<string, number> = {
     S4: 8,
     S5: 12,
     S6: 20,
+    S10A: 1,
 }
 
 export function calculatePoints(videoType: string, quantity: number): number {

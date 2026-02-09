@@ -29,7 +29,7 @@ interface FilterBarProps {
     onWeeksChange: (weeks: Set<string>) => void
 }
 
-const VIDEO_TYPES = ['S1', 'S2A', 'S2B', 'S3A', 'S3B', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9A', 'S9B', 'S9C']
+const VIDEO_TYPES = ['S1', 'S2A', 'S2B', 'S3A', 'S3B', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9A', 'S9B', 'S9C', 'S10A']
 
 // Timeline data for 2026 with actual dates
 interface WeekData {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Save, Target, ChevronDown, CalendarOff, Filter } from 'lucide-react'
@@ -37,6 +37,7 @@ const POINT_CONFIG: Record<string, number> = {
     S9A: 2.5,   // Drama: Duration < 10 min
     S9B: 4,     // Drama: Duration 11 - 20 min
     S9C: 7,     // Drama: Duration > 21 min
+    S10A: 1,    // Translate
 }
 
 // Months in 2026
@@ -80,18 +81,21 @@ function getWeeksOf2026() {
 
 export default function SettingsPage() {
     const router = useRouter()
-    const supabase = createClient()
+    const supabase = useMemo(() => createClient(), [])
 
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [user, setUser] = useState<{ role: string; fullName: string; asanaName: string } | null>(null)
     const [assignees, setAssignees] = useState<string[]>([])
     const [targets, setTargets] = useState<AssigneeTarget[]>([])
-    const [defaultTarget, setDefaultTarget] = useState(160)
+    const [defaultTarget, setDefaultTarget] = useState('160')
     const [selectedMonth, setSelectedMonth] = useState(getMonth(new Date()))
     const [showMonthDropdown, setShowMonthDropdown] = useState(false)
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
     const [selectedMember, setSelectedMember] = useState<string>('all')
+    const defaultTargetRef = useRef(defaultTarget)
+    defaultTargetRef.current = defaultTarget
+    const initialLoadDone = useRef(false)
 
     const weeks2026 = useMemo(() => getWeeksOf2026(), [])
     const currentWeekNum = getWeek(new Date(), { weekStartsOn: 1 })
@@ -123,183 +127,196 @@ export default function SettingsPage() {
             })
         }
         checkAccess()
-    }, [supabase, router])
+    }, [])
+
+    const fetchData = useCallback(async () => {
+        if (!user) return
+
+        // Only show loading spinner on initial load
+        if (!initialLoadDone.current) {
+            setLoading(true)
+        }
+        try {
+            // Fetch ALL profiles to build member list (not from tasks)
+            // Include role_creative to filter only creative team members
+            const { data: allProfiles } = await supabase
+                .from('profiles')
+                .select('full_name, asana_name, role, role_creative')
+
+            // Build member list from profiles — use asana_name as the display/match key
+            // Only include members who belong to creative team (role_creative != 'none')
+            let memberNames: string[] = []
+            const profileNameMap: Record<string, string> = {} // asana_name -> display name
+
+            if (allProfiles) {
+                allProfiles.forEach(p => {
+                    const displayName = p.asana_name || p.full_name
+                    if (!displayName) return
+                    // Skip admin accounts that don't have tasks (like tienhv)
+                    if (p.role === 'admin' && !p.asana_name) return
+                    // Only include creative team members
+                    if (p.role_creative === 'none') return
+                    memberNames.push(displayName)
+                    profileNameMap[displayName] = displayName
+                })
+            }
+
+            // Role-based filtering: Member chỉ thấy bản thân
+            if (user.role === 'member') {
+                memberNames = memberNames.filter(name =>
+                    name === user.asanaName || name === user.fullName
+                )
+                // Ensure the member always sees themselves
+                if (memberNames.length === 0) {
+                    const selfName = user.asanaName || user.fullName
+                    if (selfName) memberNames = [selfName]
+                }
+            }
+
+            memberNames = [...new Set(memberNames)].sort()
+            console.log('Member names from profiles:', memberNames)
+            setAssignees(memberNames)
+
+            // Fetch all tasks
+            const { data: tasks, error: tasksError } = await supabase
+                .from('tasks')
+                .select('*')
+                .eq('project_type', 'creative')
+
+            console.log('Tasks query result:', { count: tasks?.length, error: tasksError })
+
+            // Fetch existing targets
+            const { data: existingTargets } = await supabase
+                .from('targets')
+                .select('*')
+                .eq('project_type', 'creative')
+
+            // Fetch day offs for all members
+            const { data: dayOffsData } = await supabase
+                .from('day_offs')
+                .select('member_name, date, is_half_day')
+
+            const targetsMap: Record<string, Record<number, number>> = {}
+            const actualPointsMap: Record<string, Record<number, number>> = {}
+            const dayOffDeductionsMap: Record<string, Record<number, number>> = {}
+
+            memberNames.forEach(name => {
+                targetsMap[name] = {}
+                actualPointsMap[name] = {}
+                dayOffDeductionsMap[name] = {}
+            })
+
+            // Process existing targets
+            if (existingTargets) {
+                existingTargets.forEach(t => {
+                    const weekStart = new Date(t.week_start_date)
+                    const weekNum = getWeek(weekStart, { weekStartsOn: 1 })
+                    if (!targetsMap[t.user_gid]) {
+                        targetsMap[t.user_gid] = {}
+                    }
+                    targetsMap[t.user_gid][weekNum] = t.target_points
+                })
+            }
+
+            // Process day offs: calculate deductions per member per week
+            if (dayOffsData) {
+                dayOffsData.forEach((dayOff: DayOffRecord) => {
+                    const memberName = dayOff.member_name
+                    if (!memberName) return
+                    const date = new Date(dayOff.date)
+                    if (date.getFullYear() !== 2026) return
+                    const weekNum = getWeek(date, { weekStartsOn: 1 })
+
+                    const weeklyTarget = targetsMap[memberName]?.[weekNum] || parseInt(defaultTargetRef.current) || 160
+                    const ptsPerDay = weeklyTarget / WORKING_DAYS_PER_WEEK
+                    const deduction = dayOff.is_half_day ? ptsPerDay / 2 : ptsPerDay
+
+                    if (!dayOffDeductionsMap[memberName]) {
+                        dayOffDeductionsMap[memberName] = {}
+                    }
+                    dayOffDeductionsMap[memberName][weekNum] =
+                        (dayOffDeductionsMap[memberName][weekNum] || 0) + deduction
+                })
+            }
+
+            // Calculate actual points from completed tasks
+            if (tasks) {
+                tasks.forEach(task => {
+                    if (!task.assignee_name) return
+                    if (task.status !== 'done') return
+                    if (user.role === 'member' && task.assignee_name !== user.asanaName && task.assignee_name !== user.fullName) return
+
+                    const completedDate = task.completed_at
+                        ? new Date(task.completed_at)
+                        : task.due_date ? new Date(task.due_date) : null
+
+                    if (!completedDate) return
+
+                    const year = completedDate.getFullYear()
+                    const month = completedDate.getMonth()
+
+                    if (year !== 2026) return
+                    if (month < 1) return
+
+                    const weekNum = getWeek(completedDate, { weekStartsOn: 1 })
+                    const points = task.points || 0
+
+                    if (!actualPointsMap[task.assignee_name]) {
+                        actualPointsMap[task.assignee_name] = {}
+                    }
+                    actualPointsMap[task.assignee_name][weekNum] =
+                        (actualPointsMap[task.assignee_name][weekNum] || 0) + points
+                })
+            }
+
+            const targetsArray = memberNames.map(name => ({
+                assignee_name: name,
+                targets: targetsMap[name] || {},
+                actualPoints: actualPointsMap[name] || {},
+                dayOffDeductions: dayOffDeductionsMap[name] || {}
+            }))
+            console.log('Setting targets array:', targetsArray)
+            setTargets(targetsArray)
+        } catch (error) {
+            console.error('Error fetching data:', error)
+        } finally {
+            setLoading(false)
+            initialLoadDone.current = true
+        }
+    }, [user, supabase])
 
     useEffect(() => {
-        const fetchData = async () => {
-            if (!user) return
-
-            setLoading(true)
-            try {
-                // Fetch ALL profiles to build member list (not from tasks)
-                // Include role_creative to filter only creative team members
-                const { data: allProfiles } = await supabase
-                    .from('profiles')
-                    .select('full_name, asana_name, role, role_creative')
-
-                // Build member list from profiles — use asana_name as the display/match key
-                // Only include members who belong to creative team (role_creative != 'none')
-                let memberNames: string[] = []
-                const profileNameMap: Record<string, string> = {} // asana_name -> display name
-
-                if (allProfiles) {
-                    allProfiles.forEach(p => {
-                        const displayName = p.asana_name || p.full_name
-                        if (!displayName) return
-                        // Skip admin accounts that don't have tasks (like tienhv)
-                        if (p.role === 'admin' && !p.asana_name) return
-                        // Only include creative team members
-                        if (p.role_creative === 'none') return
-                        memberNames.push(displayName)
-                        profileNameMap[displayName] = displayName
-                    })
-                }
-
-                // Role-based filtering: Member chỉ thấy bản thân
-                if (user.role === 'member') {
-                    memberNames = memberNames.filter(name =>
-                        name === user.asanaName || name === user.fullName
-                    )
-                    // Ensure the member always sees themselves
-                    if (memberNames.length === 0) {
-                        const selfName = user.asanaName || user.fullName
-                        if (selfName) memberNames = [selfName]
-                    }
-                }
-
-                memberNames = [...new Set(memberNames)].sort()
-                console.log('Member names from profiles:', memberNames)
-                setAssignees(memberNames)
-
-                // Fetch all tasks
-                const { data: tasks, error: tasksError } = await supabase
-                    .from('tasks')
-                    .select('*')
-                    .eq('project_type', 'creative')
-
-                console.log('Tasks query result:', { count: tasks?.length, error: tasksError })
-
-                // Fetch existing targets
-                const { data: existingTargets } = await supabase
-                    .from('targets')
-                    .select('*')
-                    .eq('project_type', 'creative')
-
-                // Fetch day offs for all members
-                const { data: dayOffsData } = await supabase
-                    .from('day_offs')
-                    .select('member_name, date, is_half_day')
-
-                const targetsMap: Record<string, Record<number, number>> = {}
-                const actualPointsMap: Record<string, Record<number, number>> = {}
-                const dayOffDeductionsMap: Record<string, Record<number, number>> = {}
-
-                memberNames.forEach(name => {
-                    targetsMap[name] = {}
-                    actualPointsMap[name] = {}
-                    dayOffDeductionsMap[name] = {}
-                })
-
-                // Process existing targets
-                if (existingTargets) {
-                    existingTargets.forEach(t => {
-                        const weekStart = new Date(t.week_start_date)
-                        const weekNum = getWeek(weekStart, { weekStartsOn: 1 })
-                        if (!targetsMap[t.user_gid]) {
-                            targetsMap[t.user_gid] = {}
-                        }
-                        targetsMap[t.user_gid][weekNum] = t.target_points
-                    })
-                }
-
-                // Process day offs: calculate deductions per member per week
-                if (dayOffsData) {
-                    dayOffsData.forEach((dayOff: DayOffRecord) => {
-                        const memberName = dayOff.member_name
-                        if (!memberName) return
-                        const date = new Date(dayOff.date)
-                        if (date.getFullYear() !== 2026) return
-                        const weekNum = getWeek(date, { weekStartsOn: 1 })
-
-                        const weeklyTarget = targetsMap[memberName]?.[weekNum] || defaultTarget
-                        const ptsPerDay = weeklyTarget / WORKING_DAYS_PER_WEEK
-                        const deduction = dayOff.is_half_day ? ptsPerDay / 2 : ptsPerDay
-
-                        if (!dayOffDeductionsMap[memberName]) {
-                            dayOffDeductionsMap[memberName] = {}
-                        }
-                        dayOffDeductionsMap[memberName][weekNum] =
-                            (dayOffDeductionsMap[memberName][weekNum] || 0) + deduction
-                    })
-                }
-
-                // Calculate actual points from completed tasks
-                if (tasks) {
-                    tasks.forEach(task => {
-                        if (!task.assignee_name) return
-                        if (task.status !== 'done') return
-                        if (user.role === 'member' && task.assignee_name !== user.asanaName && task.assignee_name !== user.fullName) return
-
-                        const completedDate = task.completed_at
-                            ? new Date(task.completed_at)
-                            : task.due_date ? new Date(task.due_date) : null
-
-                        if (!completedDate) return
-
-                        const year = completedDate.getFullYear()
-                        const month = completedDate.getMonth()
-
-                        if (year !== 2026) return
-                        if (month < 1) return
-
-                        const weekNum = getWeek(completedDate, { weekStartsOn: 1 })
-                        const points = task.points || 0
-
-                        if (!actualPointsMap[task.assignee_name]) {
-                            actualPointsMap[task.assignee_name] = {}
-                        }
-                        actualPointsMap[task.assignee_name][weekNum] =
-                            (actualPointsMap[task.assignee_name][weekNum] || 0) + points
-                    })
-                }
-
-                const targetsArray = memberNames.map(name => ({
-                    assignee_name: name,
-                    targets: targetsMap[name] || {},
-                    actualPoints: actualPointsMap[name] || {},
-                    dayOffDeductions: dayOffDeductionsMap[name] || {}
-                }))
-                console.log('Setting targets array:', targetsArray)
-                setTargets(targetsArray)
-            } catch (error) {
-                console.error('Error fetching data:', error)
-            } finally {
-                setLoading(false)
-            }
-        }
         fetchData()
-    }, [supabase, user])
+    }, [fetchData])
 
     // Realtime subscription to auto-refresh when tasks are updated
     useEffect(() => {
         if (!user) return
 
+        // Debounce refetch to avoid rapid reloading
+        let timeoutId: NodeJS.Timeout | null = null
+
         const channel = supabase
             .channel('tasks-realtime')
             .on('postgres_changes',
                 { event: '*', schema: 'public', table: 'tasks' },
-                (payload) => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (payload: any) => {
                     console.log('Tasks table changed:', payload)
-                    // Refetch data when tasks change
-                    window.location.reload()
+                    // Debounce: wait 2 seconds before refetching
+                    if (timeoutId) clearTimeout(timeoutId)
+                    timeoutId = setTimeout(() => {
+                        fetchData()
+                    }, 2000)
                 }
             )
             .subscribe()
 
         return () => {
+            if (timeoutId) clearTimeout(timeoutId)
             supabase.removeChannel(channel)
         }
-    }, [supabase, user])
+    }, [supabase, user, fetchData])
 
     const updateTarget = (assigneeName: string, weekNum: number, value: number) => {
         setTargets(prev => prev.map(t => {
@@ -318,11 +335,11 @@ export default function SettingsPage() {
         setTargets(prev => prev.map(t => {
             const newTargets = { ...t.targets }
             weeksInMonth.forEach(w => {
-                newTargets[w.actualWeekNum] = defaultTarget
+                newTargets[w.actualWeekNum] = parseInt(defaultTarget) || 160
             })
             return { ...t, targets: newTargets }
         }))
-        setMessage({ type: 'success', text: `✅ Đã áp dụng ${defaultTarget} điểm cho tất cả tuần trong ${MONTHS_2026[selectedMonth].label}` })
+        setMessage({ type: 'success', text: `✅ Đã áp dụng ${parseInt(defaultTarget) || 160} điểm cho tất cả tuần trong ${MONTHS_2026[selectedMonth].label}` })
         setTimeout(() => setMessage(null), 5000)
     }
 
@@ -431,7 +448,7 @@ export default function SettingsPage() {
                             <input
                                 type="number"
                                 value={defaultTarget}
-                                onChange={(e) => setDefaultTarget(parseInt(e.target.value) || 0)}
+                                onChange={(e) => setDefaultTarget(e.target.value)}
                                 className="w-24 px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                             />
                             <span className="text-sm text-slate-500">điểm/tuần</span>

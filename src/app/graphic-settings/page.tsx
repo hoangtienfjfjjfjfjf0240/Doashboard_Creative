@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Save, Target, ChevronDown, CalendarOff, Filter } from 'lucide-react'
@@ -63,7 +63,7 @@ function getWeeksOf2026() {
 
 export default function GraphicSettingsPage() {
     const router = useRouter()
-    const supabase = createClient()
+    const supabase = useMemo(() => createClient(), [])
 
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -71,6 +71,7 @@ export default function GraphicSettingsPage() {
     const [assignees, setAssignees] = useState<string[]>([])
     const [targets, setTargets] = useState<AssigneeTarget[]>([])
     const [defaultTarget, setDefaultTarget] = useState(160)
+    const initialLoadDone = useRef(false)
     const [selectedMonth, setSelectedMonth] = useState(getMonth(new Date()))
     const [showMonthDropdown, setShowMonthDropdown] = useState(false)
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -104,12 +105,13 @@ export default function GraphicSettingsPage() {
             })
         }
         checkAccess()
-    }, [supabase, router])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
     useEffect(() => {
         const fetchData = async () => {
             if (!user) return
-            setLoading(true)
+            if (!initialLoadDone.current) setLoading(true)
             try {
                 // Fetch profiles to build member list - only graphic team members
                 const { data: allProfiles } = await supabase
@@ -215,10 +217,12 @@ export default function GraphicSettingsPage() {
                 console.error('Error fetching data:', error)
             } finally {
                 setLoading(false)
+                initialLoadDone.current = true
             }
         }
         fetchData()
-    }, [supabase, user])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user])
 
     const updateTarget = (assigneeName: string, weekNum: number, value: number) => {
         setTargets(prev => prev.map(t => {

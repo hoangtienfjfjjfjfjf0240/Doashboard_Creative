@@ -14,7 +14,7 @@ import {
 const POINT_CONFIG: Record<string, number> = {
     S1: 3, S2A: 2, S2B: 2.5, S3A: 2,
     S3B: 5, S4: 5, S5: 6, S6: 7,
-    S7: 10, S8: 48, S9A: 2.5, S9B: 4, S9C: 7,
+    S7: 10, S8: 48, S9A: 2.5, S9B: 4, S9C: 7, S10A: 1,
 }
 
 // EKS Target (6 months)

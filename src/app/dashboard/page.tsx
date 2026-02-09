@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { startOfWeek, format, addDays, subMonths, subDays, getWeek } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
@@ -42,7 +42,7 @@ interface Target {
 const POINT_CONFIG: Record<string, number> = {
     S1: 3, S2A: 2, S2B: 2.5, S3A: 2,
     S3B: 5, S4: 5, S5: 6, S6: 7,
-    S7: 10, S8: 48, S9A: 2.5, S9B: 4, S9C: 7,
+    S7: 10, S8: 48, S9A: 2.5, S9B: 4, S9C: 7, S10A: 1,
 }
 
 interface DayOffEntry {
@@ -55,7 +55,7 @@ const WORKING_DAYS_PER_WEEK = 4
 
 export default function DashboardPage() {
     const router = useRouter()
-    const supabase = createClient()
+    const supabase = useMemo(() => createClient(), [])
 
     // State
     const [loading, setLoading] = useState(true)
@@ -227,9 +227,7 @@ export default function DashboardPage() {
     const dateRangeStartStr = format(dateRange.start, 'yyyy-MM-dd')
     const dateRangeEndStr = format(dateRange.end, 'yyyy-MM-dd')
 
-    // Debug user role filtering
-    console.log('User role:', user?.role, 'fullName:', user?.fullName)
-    console.log('Assignees in data:', [...new Set(allTasks.map(t => t.assignee_name))])
+
 
     const baseFilteredTasks = allTasks.filter(task => {
         // Role-based filtering: member only sees their own tasks
@@ -525,7 +523,7 @@ export default function DashboardPage() {
                     {/* Row 2: Charts (smaller) */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
                         <VideoTypeMixChart data={doneTasks} />
-                        <DailyPointsChart tasks={doneTasks} dateRange={dateRange} />
+                        <DailyPointsChart tasks={doneTasks} dateRange={dateRange} dateField="due_date" />
                     </div>
 
 

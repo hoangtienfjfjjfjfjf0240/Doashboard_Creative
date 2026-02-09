@@ -53,33 +53,30 @@ export default function DailyPointsChart({ tasks, dateRange, dateField = 'comple
     let chartData: { label: string; points: number; colorIndex: number }[]
 
     if (useAggregate) {
-        const WEEKDAY_LABELS = ['T2', 'T3', 'T4', 'T5', 'T6']
-        const weekdayPoints: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+        const DAY_LABELS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
+        const dayPoints: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }
 
         tasks.forEach(task => {
             const dayKey = getTaskDate(task)
             if (dayKey && task.points) {
                 const date = new Date(dayKey)
                 const dow = date.getDay()
-                if (dow >= 1 && dow <= 5) {
-                    weekdayPoints[dow] += task.points
-                }
+                dayPoints[dow] += task.points
             }
         })
 
-        chartData = [1, 2, 3, 4, 5].map((dow, i) => ({
-            label: WEEKDAY_LABELS[i],
-            points: Math.round(weekdayPoints[dow]),
+        chartData = [1, 2, 3, 4, 5, 6, 0].map((dow, i) => ({
+            label: DAY_LABELS[dow],
+            points: Math.round(dayPoints[dow]),
             colorIndex: i
         }))
     } else {
-        const WEEKDAY_MAP: Record<number, string> = { 1: 'T2', 2: 'T3', 3: 'T4', 4: 'T5', 5: 'T6' }
+        const DAY_MAP: Record<number, string> = { 0: 'CN', 1: 'T2', 2: 'T3', 3: 'T4', 4: 'T5', 5: 'T6', 6: 'T7' }
         chartData = allDays
-            .filter(d => d.getDay() >= 1 && d.getDay() <= 5)
             .map((day, i) => {
                 const dayKey = format(day, 'yyyy-MM-dd')
                 return {
-                    label: `${WEEKDAY_MAP[day.getDay()]}`,
+                    label: DAY_MAP[day.getDay()],
                     points: pointsByDay[dayKey] || 0,
                     colorIndex: i % BAR_GRADIENTS.length
                 }
