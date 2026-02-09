@@ -131,19 +131,23 @@ export default function UsersPage() {
                     <div className="flex flex-wrap gap-4 mb-6">
                         <div className="flex items-center gap-2 text-sm">
                             <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                            <span className="text-slate-400">Admin - Xem tất cả + Quản lý users</span>
+                            <span className="text-slate-400">Creative Manager — Xem được cả hai team + Quản lý users</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                             <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                            <span className="text-slate-400">Manager - Xem tất cả thành viên trong project</span>
+                            <span className="text-slate-400">Admin Creative — Xem được các thành viên video</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                            <div className="w-3 h-3 rounded-full bg-cyan-500"></div>
+                            <span className="text-slate-400">Admin Design — Xem được các thành viên design</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                             <div className="w-3 h-3 rounded-full bg-slate-500"></div>
-                            <span className="text-slate-400">Member - Chỉ xem bản thân</span>
+                            <span className="text-slate-400">Member — Chỉ xem được chính mình</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                             <div className="w-3 h-3 rounded-full bg-slate-700"></div>
-                            <span className="text-slate-400">None - Không truy cập project</span>
+                            <span className="text-slate-400">None — Không truy cập project</span>
                         </div>
                     </div>
 
@@ -202,8 +206,8 @@ export default function UsersPage() {
                                                         onChange={e => handleFieldChange(user.id, 'role', e.target.value)}
                                                         className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 ${getRoleColor(currentRole)} bg-slate-700/50 border-slate-600`}
                                                     >
-                                                        <option value="admin">Admin</option>
-                                                        <option value="manager">Manager</option>
+                                                        <option value="admin">Creative Manager</option>
+                                                        <option value="manager">Admin Creative</option>
                                                         <option value="member">Member</option>
                                                         <option value="none">None</option>
                                                     </select>
@@ -214,7 +218,7 @@ export default function UsersPage() {
                                                         onChange={e => handleFieldChange(user.id, 'role_graphic', e.target.value)}
                                                         className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 ${getRoleColor(currentRoleGraphic)} bg-slate-700/50 border-slate-600`}
                                                     >
-                                                        <option value="admin">Admin</option>
+                                                        <option value="admin">Admin Design</option>
                                                         <option value="manager">Manager</option>
                                                         <option value="member">Member</option>
                                                         <option value="none">None</option>
@@ -255,9 +259,13 @@ export default function UsersPage() {
                         <p className="text-amber-300 text-sm">
                             <strong>Lưu ý:</strong> Tên đầy đủ phải khớp chính xác với tên trong Asana để hệ thống lọc đúng data.
                             <br />
-                            <strong>Admin:</strong> Xem tất cả + Quản lý users. Creative Admin xem được cả hai team.
+                            <strong>Creative Manager:</strong> Xem được cả hai team (Creative + Design) + Quản lý users.
                             <br />
-                            <strong>Manager:</strong> Xem tất cả thành viên trong project được gán, nhưng không quản lý users.
+                            <strong>Admin Creative:</strong> Xem được các thành viên video creative.
+                            <br />
+                            <strong>Admin Design:</strong> Xem được các thành viên design.
+                            <br />
+                            <strong>Member:</strong> Chỉ xem được chính mình.
                             <br />
                             <strong>None:</strong> Không truy cập project đó.
                         </p>
