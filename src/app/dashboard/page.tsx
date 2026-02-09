@@ -128,13 +128,15 @@ export default function DashboardPage() {
 
             const weekStartStr = format(weekStart, 'yyyy-MM-dd')
             // Get targets for the selected date range
-            const startDateStr = format(dateRange.start, 'yyyy-MM-dd')
+            // Expand start by 7 days to catch weeks that overlap (week_start_date is Monday, may be before dateRange.start)
+            const expandedStartStr = format(subDays(dateRange.start, 7), 'yyyy-MM-dd')
             const endDateStr = format(dateRange.end, 'yyyy-MM-dd')
 
             const { data: targetsData } = await supabase
                 .from('targets')
                 .select('*')
-                .gte('week_start_date', startDateStr)
+                .eq('project_type', 'creative')
+                .gte('week_start_date', expandedStartStr)
                 .lte('week_start_date', endDateStr)
 
             if (targetsData) {
