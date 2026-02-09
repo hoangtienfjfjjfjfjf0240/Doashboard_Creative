@@ -1,0 +1,665 @@
+/* =============================================
+   Light Theme (White + Orange) - Flat Design
+   No gradients. Orange / Black / White only.
+   Clear borders and lines.
+   ============================================= */
+
+/* ==================== BASE ==================== */
+[data-theme="light"] body {
+    background: #f5f5f5 !important;
+    color: #1a1a1a !important;
+}
+
+/* ==================== PAGE BG ==================== */
+[data-theme="light"] .bg-slate-950 {
+    background-color: #f5f5f5 !important;
+}
+
+[data-theme="light"] .bg-slate-950\/80 {
+    background-color: rgba(255, 255, 255, 0.96) !important;
+    backdrop-filter: blur(8px) !important;
+}
+
+/* ==================== SIDEBAR ==================== */
+[data-theme="light"] .bg-slate-900 {
+    background-color: #ffffff !important;
+    border-right: 1px solid #e0e0e0 !important;
+}
+
+[data-theme="light"] aside .border-slate-800 {
+    border-color: #e0e0e0 !important;
+}
+
+[data-theme="light"] aside h1.text-white {
+    color: #1a1a1a !important;
+}
+
+[data-theme="light"] aside .text-purple-400 {
+    color: #ea580c !important;
+}
+
+[data-theme="light"] aside .text-slate-400 {
+    color: #666666 !important;
+}
+
+[data-theme="light"] aside .text-slate-500 {
+    color: #999999 !important;
+}
+
+[data-theme="light"] aside .text-slate-600 {
+    color: #999999 !important;
+}
+
+[data-theme="light"] aside a.text-slate-400:hover {
+    color: #1a1a1a !important;
+}
+
+[data-theme="light"] aside .hover\:bg-slate-800:hover {
+    background-color: #fff5eb !important;
+}
+
+/* Sidebar active item — flat orange */
+[data-theme="light"] aside a.bg-purple-600 {
+    background: #ea580c !important;
+    box-shadow: none !important;
+}
+
+[data-theme="light"] aside a.bg-purple-600 span,
+[data-theme="light"] aside a.bg-purple-600 svg,
+[data-theme="light"] aside a.bg-purple-600 div {
+    color: #ffffff !important;
+}
+
+/* Sidebar theme toggle */
+[data-theme="light"] aside .bg-slate-800 {
+    background-color: #f5f5f5 !important;
+    border: 1px solid #e0e0e0 !important;
+}
+
+[data-theme="light"] aside .text-xs.text-slate-400 {
+    color: #666666 !important;
+}
+
+/* ==================== HEADER ==================== */
+[data-theme="light"] .border-slate-800\/50 {
+    border-color: #e0e0e0 !important;
+}
+
+[data-theme="light"] header .text-white,
+[data-theme="light"] .sticky .text-white {
+    color: #1a1a1a !important;
+}
+
+[data-theme="light"] header .text-slate-400,
+[data-theme="light"] .sticky .text-slate-400 {
+    color: #666666 !important;
+}
+
+[data-theme="light"] header .text-slate-500 {
+    color: #999999 !important;
+}
+
+/* ==================== TEXT COLORS ==================== */
+[data-theme="light"] .text-white {
+    color: #1a1a1a !important;
+}
+
+[data-theme="light"] .text-slate-100 {
+    color: #1a1a1a !important;
+}
+
+[data-theme="light"] .text-slate-200 {
+    color: #333333 !important;
+}
+
+[data-theme="light"] .text-slate-300 {
+    color: #444444 !important;
+}
+
+[data-theme="light"] .text-slate-400 {
+    color: #666666 !important;
+}
+
+[data-theme="light"] .text-slate-500 {
+    color: #888888 !important;
+}
+
+[data-theme="light"] .text-slate-600 {
+    color: #999999 !important;
+}
+
+[data-theme="light"] .placeholder-slate-400::placeholder {
+    color: #aaaaaa !important;
+}
+
+[data-theme="light"] .placeholder-slate-500::placeholder {
+    color: #aaaaaa !important;
+}
+
+/* Purple → Orange */
+[data-theme="light"] .text-purple-400 {
+    color: #ea580c !important;
+}
+
+[data-theme="light"] .text-purple-300 {
+    color: #ea580c !important;
+}
+
+[data-theme="light"] .text-purple-500 {
+    color: #ea580c !important;
+}
+
+[data-theme="light"] .text-violet-400 {
+    color: #ea580c !important;
+}
+
+[data-theme="light"] .text-violet-300 {
+    color: #ea580c !important;
+}
+
+[data-theme="light"] .hover\:text-purple-300:hover {
+    color: #c2410c !important;
+}
+
+[data-theme="light"] .hover\:text-white:hover {
+    color: #000000 !important;
+}
+
+/* Status colors — vivid on white */
+[data-theme="light"] .text-emerald-400 {
+    color: #059669 !important;
+}
+
+[data-theme="light"] .text-emerald-300 {
+    color: #059669 !important;
+}
+
+[data-theme="light"] .text-green-400 {
+    color: #16a34a !important;
+}
+
+[data-theme="light"] .text-green-300 {
+    color: #059669 !important;
+}
+
+[data-theme="light"] .text-cyan-400 {
+    color: #0891b2 !important;
+}
+
+[data-theme="light"] .text-amber-400 {
+    color: #d97706 !important;
+}
+
+[data-theme="light"] .text-amber-300 {
+    color: #d97706 !important;
+}
+
+[data-theme="light"] .text-red-400 {
+    color: #dc2626 !important;
+}
+
+[data-theme="light"] .text-red-300 {
+    color: #dc2626 !important;
+}
+
+[data-theme="light"] .text-indigo-400 {
+    color: #4f46e5 !important;
+}
+
+/* ==================== CARDS (KPI, Chart sections) ==================== */
+[data-theme="light"] .bg-slate-800\/50 {
+    background-color: #ffffff !important;
+    border: 1px solid #e0e0e0 !important;
+    box-shadow: none !important;
+}
+
+[data-theme="light"] .bg-slate-800\/40 {
+    background-color: #ffffff !important;
+    border: 1px solid #e0e0e0 !important;
+    box-shadow: none !important;
+}
+
+[data-theme="light"] .bg-slate-800\/30 {
+    background-color: #ffffff !important;
+    border: 1px solid #e0e0e0 !important;
+    box-shadow: none !important;
+}
+
+[data-theme="light"] .bg-slate-800\/20 {
+    background-color: #fafafa !important;
+}
+
+[data-theme="light"] .bg-slate-800 {
+    background-color: #f5f5f5 !important;
+}
+
+/* Card borders */
+[data-theme="light"] .border-slate-700\/50 {
+    border-color: #e0e0e0 !important;
+}
+
+[data-theme="light"] .border-slate-700 {
+    border-color: #e0e0e0 !important;
+}
+
+[data-theme="light"] .border-slate-800 {
+    border-color: #e0e0e0 !important;
+}
+
+[data-theme="light"] .border-slate-600 {
+    border-color: #d0d0d0 !important;
+}
+
+/* Card hover — subtle */
+[data-theme="light"] .hover\:border-slate-600\/50:hover {
+    border-color: #ea580c !important;
+}
+
+[data-theme="light"] .hover\:shadow-lg:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .hover\:shadow-purple-500\/10:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .hover\:shadow-purple-500\/20:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ==================== KPI ICON BADGES ==================== */
+[data-theme="light"] .bg-violet-500\/10 {
+    background-color: #fff5eb !important;
+}
+
+[data-theme="light"] .bg-cyan-500\/10 {
+    background-color: #ecfeff !important;
+}
+
+[data-theme="light"] .bg-emerald-500\/10 {
+    background-color: #ecfdf5 !important;
+}
+
+[data-theme="light"] .bg-amber-500\/10 {
+    background-color: #fffbeb !important;
+}
+
+[data-theme="light"] .bg-indigo-500\/10 {
+    background-color: #eef2ff !important;
+}
+
+/* Weeks achieved card — flat orange bg */
+[data-theme="light"] .bg-gradient-to-br.from-violet-600\/20.to-purple-600\/20 {
+    background: #fff5eb !important;
+    border: 1px solid #fdba74 !important;
+}
+
+[data-theme="light"] .border-purple-500\/30 {
+    border-color: #fdba74 !important;
+}
+
+[data-theme="light"] .hover\:border-purple-400\/50:hover {
+    border-color: #ea580c !important;
+}
+
+[data-theme="light"] .bg-purple-500\/20 {
+    background-color: #fff5eb !important;
+}
+
+/* Progress bar */
+[data-theme="light"] .bg-slate-700 {
+    background-color: #e0e0e0 !important;
+}
+
+[data-theme="light"] .bg-slate-600 {
+    background-color: #d0d0d0 !important;
+}
+
+/* ==================== FILTER BAR ==================== */
+[data-theme="light"] .bg-slate-700\/50 {
+    background-color: #ffffff !important;
+    border: 1px solid #e0e0e0 !important;
+}
+
+[data-theme="light"] .hover\:bg-slate-600\/50:hover {
+    background-color: #fff5eb !important;
+    border-color: #ea580c !important;
+}
+
+/* Active filter button — flat orange */
+[data-theme="light"] .bg-purple-600 {
+    background-color: #ea580c !important;
+}
+
+[data-theme="light"] .bg-purple-500 {
+    background-color: #ea580c !important;
+}
+
+[data-theme="light"] .hover\:bg-purple-600:hover {
+    background-color: #c2410c !important;
+}
+
+[data-theme="light"] .hover\:bg-purple-500:hover {
+    background-color: #c2410c !important;
+}
+
+/* Dropdown */
+[data-theme="light"] .bg-slate-800\/95 {
+    background-color: #ffffff !important;
+    border: 1px solid #e0e0e0 !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+}
+
+[data-theme="light"] .bg-slate-700 {
+    background-color: #f5f5f5 !important;
+}
+
+[data-theme="light"] .hover\:bg-slate-700:hover {
+    background-color: #fff5eb !important;
+}
+
+/* Selected in dropdown */
+[data-theme="light"] .bg-purple-500\/20 {
+    background-color: #fff5eb !important;
+}
+
+[data-theme="light"] .text-purple-300 {
+    color: #ea580c !important;
+}
+
+/* ==================== BUTTONS ==================== */
+/* All gradient buttons → flat orange */
+[data-theme="light"] .bg-gradient-to-r.from-violet-600.to-purple-600,
+[data-theme="light"] .bg-gradient-to-r.from-violet-500.to-purple-500,
+[data-theme="light"] [class*="bg-gradient-to-r"][class*="from-violet"] {
+    background: #ea580c !important;
+}
+
+[data-theme="light"] .hover\:from-violet-500:hover {
+    background: #c2410c !important;
+}
+
+/* Keep text white on orange buttons */
+[data-theme="light"] button[class*="bg-gradient-to-r"],
+[data-theme="light"] button[class*="bg-purple-"],
+[data-theme="light"] button.bg-purple-500,
+[data-theme="light"] button.bg-purple-600 {
+    color: #ffffff !important;
+}
+
+[data-theme="light"] button[type="submit"] {
+    color: #ffffff !important;
+}
+
+[data-theme="light"] button[type="submit"] span {
+    color: #ffffff !important;
+}
+
+/* Sync Now button text */
+[data-theme="light"] .bg-purple-500 .text-white,
+[data-theme="light"] .bg-purple-600 .text-white {
+    color: #ffffff !important;
+}
+
+/* ==================== BADGES / STATUS ==================== */
+[data-theme="light"] .bg-emerald-500\/20 {
+    background-color: #ecfdf5 !important;
+}
+
+[data-theme="light"] .bg-red-500\/20 {
+    background-color: #fef2f2 !important;
+}
+
+[data-theme="light"] .bg-red-500\/10 {
+    background-color: #fef2f2 !important;
+}
+
+[data-theme="light"] .bg-green-500\/20 {
+    background-color: #ecfdf5 !important;
+}
+
+[data-theme="light"] .bg-amber-500\/20 {
+    background-color: #fffbeb !important;
+}
+
+[data-theme="light"] .bg-slate-500\/20 {
+    background-color: #f0f0f0 !important;
+}
+
+[data-theme="light"] .bg-purple-500\/10 {
+    background-color: #fff5eb !important;
+}
+
+/* ==================== TABLES ==================== */
+[data-theme="light"] table {
+    color: #1a1a1a !important;
+}
+
+[data-theme="light"] .bg-slate-700\/30 {
+    background-color: #f5f5f5 !important;
+}
+
+[data-theme="light"] .bg-slate-700\/20 {
+    background-color: #fafafa !important;
+}
+
+[data-theme="light"] .divide-slate-700\/50>*+* {
+    border-color: #e0e0e0 !important;
+}
+
+[data-theme="light"] tbody tr:hover {
+    background-color: #fff5eb !important;
+}
+
+[data-theme="light"] .hover\:bg-slate-700\/20:hover {
+    background-color: #fff5eb !important;
+}
+
+/* ==================== INPUTS ==================== */
+[data-theme="light"] input,
+[data-theme="light"] select,
+[data-theme="light"] textarea {
+    background-color: #ffffff !important;
+    border: 1px solid #d0d0d0 !important;
+    color: #1a1a1a !important;
+}
+
+[data-theme="light"] input::placeholder,
+[data-theme="light"] textarea::placeholder {
+    color: #aaaaaa !important;
+}
+
+[data-theme="light"] input:focus,
+[data-theme="light"] select:focus,
+[data-theme="light"] textarea:focus {
+    border-color: #ea580c !important;
+    box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.15) !important;
+    outline: none !important;
+}
+
+/* ==================== CHARTS (Recharts) ==================== */
+[data-theme="light"] .recharts-text,
+[data-theme="light"] .recharts-cartesian-axis-tick-value {
+    fill: #666666 !important;
+}
+
+[data-theme="light"] .recharts-legend-item-text {
+    color: #333333 !important;
+}
+
+[data-theme="light"] .recharts-cartesian-grid line {
+    stroke: #e0e0e0 !important;
+}
+
+[data-theme="light"] .recharts-tooltip-wrapper .recharts-default-tooltip {
+    background-color: #ffffff !important;
+    border: 1px solid #e0e0e0 !important;
+    color: #1a1a1a !important;
+}
+
+/* ==================== WHITE/OPACITY → FLAT ==================== */
+[data-theme="light"] .bg-white\/5 {
+    background-color: #ffffff !important;
+    border: 1px solid #e0e0e0 !important;
+}
+
+[data-theme="light"] .bg-white\/10 {
+    background-color: #ffffff !important;
+    border: 1px solid #e0e0e0 !important;
+}
+
+[data-theme="light"] .border-white\/10 {
+    border-color: #e0e0e0 !important;
+}
+
+[data-theme="light"] .border-white\/20 {
+    border-color: #d0d0d0 !important;
+}
+
+/* ==================== RING / FOCUS ==================== */
+[data-theme="light"] .focus\:ring-purple-500:focus {
+    --tw-ring-color: #ea580c !important;
+}
+
+[data-theme="light"] .ring-purple-500\/30 {
+    --tw-ring-color: rgba(234, 88, 12, 0.3) !important;
+}
+
+[data-theme="light"] .focus\:ring-offset-slate-900:focus {
+    --tw-ring-offset-color: #ffffff !important;
+}
+
+/* ==================== SHADOWS → flat / minimal ==================== */
+[data-theme="light"] .shadow-lg {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+}
+
+[data-theme="light"] .shadow-2xl {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .shadow-purple-500\/25 {
+    --tw-shadow-color: transparent !important;
+}
+
+[data-theme="light"] .shadow-purple-900\/50 {
+    --tw-shadow-color: transparent !important;
+}
+
+/* ==================== LOGIN PAGE ==================== */
+[data-theme="light"] .min-h-screen.bg-gradient-to-br {
+    background: #f5f5f5 !important;
+}
+
+[data-theme="light"] .bg-white\/10 h2 {
+    color: #1a1a1a !important;
+}
+
+/* ==================== SCROLLBAR ==================== */
+[data-theme="light"] ::-webkit-scrollbar-track {
+    background: #f5f5f5 !important;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+    background: #d0d0d0 !important;
+    border-radius: 4px;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+    background: #aaaaaa !important;
+}
+
+/* ==================== SKELETON ==================== */
+[data-theme="light"] .skeleton {
+    background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%) !important;
+    background-size: 200% 100%;
+}
+
+/* ==================== MISC ==================== */
+[data-theme="light"] .backdrop-blur-xl {
+    backdrop-filter: blur(8px) !important;
+}
+
+[data-theme="light"] .card-hover:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+}
+
+[data-theme="light"] .border-glow-purple {
+    box-shadow: 0 0 0 1px #ea580c, 0 0 8px rgba(234, 88, 12, 0.1) !important;
+}
+
+[data-theme="light"] .tooltip-arrow::after {
+    border-color: transparent transparent #ffffff transparent !important;
+}
+
+[data-theme="light"] .bg-slate-900\/80 {
+    background-color: rgba(255, 255, 255, 0.96) !important;
+}
+
+/* Hover states */
+[data-theme="light"] .hover\:bg-slate-800:hover {
+    background-color: #fff5eb !important;
+}
+
+[data-theme="light"] .hover\:bg-slate-700:hover {
+    background-color: #f0f0f0 !important;
+}
+
+/* Keep white text on colored backgrounds */
+[data-theme="light"] a.bg-purple-600 span {
+    color: #ffffff !important;
+}
+
+[data-theme="light"] .bg-gradient-to-r .text-white,
+[data-theme="light"] [class*="from-violet"] .text-white,
+[data-theme="light"] [class*="from-emerald"] .text-white,
+[data-theme="light"] [class*="bg-emerald-500"] .text-white,
+[data-theme="light"] [class*="bg-red-500"] .text-white {
+    color: #ffffff !important;
+}
+
+/* ==================== GLOW → none ==================== */
+[data-theme="light"] .animate-glow {
+    animation: none !important;
+}
+
+/* ==================== THEME TOGGLE BUTTON ==================== */
+.theme-toggle {
+    position: relative;
+    width: 52px;
+    height: 28px;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
+    padding: 2px;
+}
+
+.theme-toggle[data-theme="dark"] {
+    background: #475569;
+}
+
+.theme-toggle[data-theme="light"] {
+    background: #ea580c;
+}
+
+.theme-toggle .toggle-knob {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #ffffff;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.theme-toggle[data-theme="light"] .toggle-knob {
+    transform: translateX(24px);
+}
+
+.theme-toggle .toggle-icon {
+    width: 14px;
+    height: 14px;
+}
