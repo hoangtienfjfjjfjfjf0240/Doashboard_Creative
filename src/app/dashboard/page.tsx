@@ -36,6 +36,7 @@ interface Task {
 
 interface Target {
     user_gid: string
+    week_start_date: string
     target_points: number
 }
 
@@ -269,8 +270,31 @@ export default function DashboardPage() {
     const avgPointsPerVideo = totalVideos > 0 ? totalPoints / totalVideos : 0
 
     // Calculate target for selected date range
-    // Target = 160 per member per week (for the current user or selected members)
-    const DEFAULT_TARGET_PER_MEMBER_PER_WEEK = 160
+    // Read target from the targets table, fallback to 160 if not set
+    const FALLBACK_TARGET = 160
+
+    // Build a lookup: get average target per member from targets data in the date range
+    const getTargetForMemberWeek = (memberName: string, weekNum: number): number => {
+        const match = targets.find(t => {
+            const tWeek = getWeek(new Date(t.week_start_date), { weekStartsOn: 1 })
+            return t.user_gid === memberName && tWeek === weekNum
+        })
+        if (match) return match.target_points
+
+        // If no specific match, find any target for this member
+        const anyMatch = targets.find(t => t.user_gid === memberName)
+        if (anyMatch) return anyMatch.target_points
+
+        // If no match at all, use the most common target from all targets data, or fallback
+        if (targets.length > 0) return targets[0].target_points
+
+        return FALLBACK_TARGET
+    }
+
+    // Calculate a representative per-member-per-week target
+    const DEFAULT_TARGET_PER_MEMBER_PER_WEEK = targets.length > 0
+        ? targets[0].target_points
+        : FALLBACK_TARGET
 
     // Calculate number of weeks in selected date range
     const daysDiff = Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24)) + 1
