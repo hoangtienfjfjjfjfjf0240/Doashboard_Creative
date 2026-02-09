@@ -215,7 +215,11 @@ async function syncProject(projectType: ProjectType): Promise<{ processed: numbe
             .from('tasks')
             .upsert(taskData, { onConflict: 'asana_id' })
 
-        if (!error) tasksUpdated++
+        if (error) {
+            console.error(`[Sync] Upsert error for ${task.gid}:`, error.message)
+        } else {
+            tasksUpdated++
+        }
     }
 
     // Clean up stale tasks: remove tasks from Supabase that no longer exist in Asana
@@ -252,8 +256,8 @@ export async function POST(request: NextRequest) {
             ? ['creative']
             : ['creative', 'graphic'] // default: sync both
 
-    // Create sync log
-    const { data: syncLog, error: logError } = await supabase
+    // Create sync log (optional - don't block sync if this fails)
+    const { data: syncLog } = await supabase
         .from('sync_logs')
         .insert({
             started_at: startTime.toISOString(),
@@ -263,10 +267,6 @@ export async function POST(request: NextRequest) {
         })
         .select()
         .single()
-
-    if (logError) {
-        return NextResponse.json({ error: 'Failed to create sync log' }, { status: 500 })
-    }
 
     try {
         let totalProcessed = 0
@@ -285,16 +285,18 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // Update sync log
-        await supabase
-            .from('sync_logs')
-            .update({
-                ended_at: new Date().toISOString(),
-                status: 'success',
-                tasks_processed: totalProcessed,
-                tasks_updated: totalUpdated,
-            })
-            .eq('id', syncLog.id)
+        // Update sync log if it was created
+        if (syncLog) {
+            await supabase
+                .from('sync_logs')
+                .update({
+                    ended_at: new Date().toISOString(),
+                    status: 'success',
+                    tasks_processed: totalProcessed,
+                    tasks_updated: totalUpdated,
+                })
+                .eq('id', syncLog.id)
+        }
 
         return NextResponse.json({
             success: true,
@@ -307,14 +309,16 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error'
 
-        await supabase
-            .from('sync_logs')
-            .update({
-                ended_at: new Date().toISOString(),
-                status: 'error',
-                error_message: message,
-            })
-            .eq('id', syncLog.id)
+        if (syncLog) {
+            await supabase
+                .from('sync_logs')
+                .update({
+                    ended_at: new Date().toISOString(),
+                    status: 'error',
+                    error_message: message,
+                })
+                .eq('id', syncLog.id)
+        }
 
         return NextResponse.json({ error: message }, { status: 500 })
     }

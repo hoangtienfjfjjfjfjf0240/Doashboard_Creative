@@ -65,7 +65,7 @@ export default function DailyPointsChart({ tasks, dateRange, dateField = 'comple
             }
         })
 
-        chartData = [1, 2, 3, 4, 5, 6, 0].map((dow, i) => ({
+        chartData = [1, 2, 3, 4, 5].map((dow, i) => ({
             label: DAY_LABELS[dow],
             points: Math.round(dayPoints[dow]),
             colorIndex: i
@@ -73,6 +73,7 @@ export default function DailyPointsChart({ tasks, dateRange, dateField = 'comple
     } else {
         const DAY_MAP: Record<number, string> = { 0: 'CN', 1: 'T2', 2: 'T3', 3: 'T4', 4: 'T5', 5: 'T6', 6: 'T7' }
         chartData = allDays
+            .filter(day => day.getDay() !== 0 && day.getDay() !== 6) // Only weekdays (T2-T6)
             .map((day, i) => {
                 const dayKey = format(day, 'yyyy-MM-dd')
                 return {
