@@ -283,6 +283,7 @@ export async function POST(request: NextRequest) {
         let totalProcessed = 0
         let totalUpdated = 0
         const results: Record<string, { processed: number; updated: number }> = {}
+        const errors: string[] = []
 
         for (const projectType of projectsToSync) {
             try {
@@ -291,10 +292,15 @@ export async function POST(request: NextRequest) {
                 totalProcessed += result.processed
                 totalUpdated += result.updated
             } catch (err) {
-                console.error(`Error syncing ${projectType}:`, err)
+                const errMsg = err instanceof Error ? err.message : 'Unknown error'
+                console.error(`Error syncing ${projectType}:`, errMsg)
+                errors.push(`${projectType}: ${errMsg}`)
                 results[projectType] = { processed: 0, updated: 0 }
             }
         }
+
+        const hasErrors = errors.length > 0
+        const status = hasErrors && totalProcessed === 0 ? 'error' : hasErrors ? 'partial' : 'success'
 
         // Update sync log if it was created
         if (syncLog) {
@@ -302,19 +308,21 @@ export async function POST(request: NextRequest) {
                 .from('sync_logs')
                 .update({
                     ended_at: new Date().toISOString(),
-                    status: 'success',
+                    status: status,
                     tasks_processed: totalProcessed,
                     tasks_updated: totalUpdated,
+                    error_message: hasErrors ? errors.join('; ') : null,
                 })
                 .eq('id', syncLog.id)
         }
 
         return NextResponse.json({
-            success: true,
+            success: !hasErrors || totalProcessed > 0,
             projects: results,
             tasksProcessed: totalProcessed,
             tasksUpdated: totalUpdated,
             duration: Date.now() - startTime.getTime(),
+            errors: hasErrors ? errors : undefined,
         })
 
     } catch (error) {
