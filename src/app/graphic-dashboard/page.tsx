@@ -202,8 +202,8 @@ export default function GraphicDashboardPage() {
                         cache: 'no-store',
                     })
                     if (response.ok) {
-                        console.log('[Auto-Sync Graphic] Sync complete')
-                        // Data will auto-refresh via realtime subscription
+                        console.log('[Auto-Sync Graphic] Sync complete, refreshing data...')
+                        await fetchData(true)
                     }
                 } catch (error) {
                     console.error('[Auto-Sync Graphic] Error:', error)

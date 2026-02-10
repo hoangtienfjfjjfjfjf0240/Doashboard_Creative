@@ -201,8 +201,8 @@ export default function DashboardPage() {
                         cache: 'no-store',
                     })
                     if (response.ok) {
-                        console.log('[Auto-Sync] Sync complete')
-                        // Data will auto-refresh via realtime subscription
+                        console.log('[Auto-Sync] Sync complete, refreshing data...')
+                        await fetchData(true)
                     }
                 } catch (error) {
                     console.error('[Auto-Sync] Error:', error)
