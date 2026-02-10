@@ -96,11 +96,10 @@ export default function DayOffsPage() {
             }
         }
 
-        // Fetch targets for all members (store raw data, compute dynamically per month)
+        // Fetch targets for all members (both creative and graphic)
         const { data: targets } = await supabase
             .from('targets')
             .select('*')
-            .eq('project_type', 'creative')
 
         if (targets && targets.length > 0) {
             setAllTargets(targets)
@@ -130,12 +129,21 @@ export default function DayOffsPage() {
         if (data) setDayOffs(data)
     }
 
-    // Get the target for the selected member based on the currently viewed month
-    const getMemberWeeklyTarget = (member: string): number => {
+    // Get the target for the selected member for a specific week
+    const getMemberWeeklyTarget = (member: string, date?: Date): number => {
+        if (date) {
+            // Look up target for the specific week containing this date
+            const weekStart = format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+            const weekTarget = allTargets.find(t =>
+                t.user_gid === member &&
+                t.week_start_date === weekStart
+            )
+            if (weekTarget) return Number(weekTarget.target_points) || DEFAULT_TARGET_PER_WEEK
+        }
+
+        // Fallback: find target within the viewed month
         const monthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
         const monthEnd = format(endOfMonth(currentMonth), 'yyyy-MM-dd')
-
-        // Find target for this member within the viewed month
         const monthTarget = allTargets.find(t =>
             t.user_gid === member &&
             t.week_start_date >= monthStart &&
@@ -215,9 +223,12 @@ export default function DayOffsPage() {
     const startDayOfWeek = getDay(monthStart)
     const adjustedStartDay = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1
 
-    // Calculate target reduction — each day off reduces by the member-specific amount
+    // Calculate target reduction — each day off uses its own week's target
     const targetReduction = dayOffs.reduce((sum, d) => {
-        return sum + (d.is_half_day ? ptsPerHalfDay : ptsPerDay)
+        const dayDate = new Date(d.date)
+        const weekTarget = getMemberWeeklyTarget(activeMember, dayDate)
+        const dayPts = Math.round((weekTarget / WORKING_DAYS_PER_WEEK) * 10) / 10
+        return sum + (d.is_half_day ? dayPts / 2 : dayPts)
     }, 0)
 
     return (
