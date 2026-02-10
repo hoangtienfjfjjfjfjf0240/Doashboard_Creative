@@ -324,9 +324,9 @@ export default function GraphicDashboardPage() {
     let totalDayOffDeduction = 0
     currentUserDayOffs.forEach(d => {
         const date = new Date(d.date + 'T00:00:00')
-        // Skip non-working days (Fri=5, Sat=6, Sun=0)
+        // Skip weekends (Sat=6, Sun=0)
         const dow = date.getDay()
-        if (dow === 0 || dow === 5 || dow === 6) return
+        if (dow === 0 || dow === 6) return
         const weekNum = getWeek(date, { weekStartsOn: 1 })
         const weekStart = format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd')
         const memberTarget = getTargetForMemberWeek(d.member_name || '', weekStart)

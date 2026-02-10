@@ -226,9 +226,9 @@ export default function SettingsPage() {
                     const date = new Date(dayOff.date + 'T00:00:00')
                     if (date.getFullYear() !== 2026) return
 
-                    // Skip non-working days (Fri=5, Sat=6, Sun=0) — only Mon-Thu count
+                    // Skip weekends (Sat=6, Sun=0) — Mon-Fri are working days
                     const dayOfWeek = date.getDay()
-                    if (dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6) return
+                    if (dayOfWeek === 0 || dayOfWeek === 6) return
 
                     const weekNum = getWeek(date, { weekStartsOn: 1 })
 

@@ -228,8 +228,8 @@ export default function DayOffsPage() {
     const targetReduction = dayOffs.reduce((sum, d) => {
         const dayDate = new Date(d.date + 'T00:00:00')
         const dayOfWeek = dayDate.getDay()
-        // Skip non-working days (Fri=5, Sat=6, Sun=0)
-        if (dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6) return sum
+        // Skip weekends (Sat=6, Sun=0)
+        if (dayOfWeek === 0 || dayOfWeek === 6) return sum
         const weekTarget = getMemberWeeklyTarget(activeMember, dayDate)
         const dayPts = Math.round((weekTarget / WORKING_DAYS_PER_WEEK) * 10) / 10
         return sum + (d.is_half_day ? dayPts / 2 : dayPts)
