@@ -323,13 +323,17 @@ export default function GraphicDashboardPage() {
     const dayOffDeductionsByWeek: Record<number, number> = {}
     let totalDayOffDeduction = 0
     currentUserDayOffs.forEach(d => {
-        const date = new Date(d.date)
+        const date = new Date(d.date + 'T00:00:00')
+        // Skip non-working days (Fri=5, Sat=6, Sun=0)
+        const dow = date.getDay()
+        if (dow === 0 || dow === 5 || dow === 6) return
         const weekNum = getWeek(date, { weekStartsOn: 1 })
         const weekStart = format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd')
         const memberTarget = getTargetForMemberWeek(d.member_name || '', weekStart)
         const ptsPerDay = memberTarget / WORKING_DAYS_PER_WEEK
         const deduction = d.is_half_day ? ptsPerDay / 2 : ptsPerDay
-        dayOffDeductionsByWeek[weekNum] = (dayOffDeductionsByWeek[weekNum] || 0) + deduction
+        const currentDed = dayOffDeductionsByWeek[weekNum] || 0
+        dayOffDeductionsByWeek[weekNum] = Math.min(currentDed + deduction, memberTarget)
         totalDayOffDeduction += deduction
     })
 

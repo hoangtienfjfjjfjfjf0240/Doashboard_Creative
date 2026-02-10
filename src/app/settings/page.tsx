@@ -223,8 +223,13 @@ export default function SettingsPage() {
                 dayOffsData.forEach((dayOff: DayOffRecord) => {
                     const memberName = dayOff.member_name
                     if (!memberName) return
-                    const date = new Date(dayOff.date)
+                    const date = new Date(dayOff.date + 'T00:00:00')
                     if (date.getFullYear() !== 2026) return
+
+                    // Skip non-working days (Fri=5, Sat=6, Sun=0) — only Mon-Thu count
+                    const dayOfWeek = date.getDay()
+                    if (dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6) return
+
                     const weekNum = getWeek(date, { weekStartsOn: 1 })
 
                     const weeklyTarget = targetsMap[memberName]?.[weekNum] || parseInt(defaultTargetRef.current) || 160
@@ -234,8 +239,9 @@ export default function SettingsPage() {
                     if (!dayOffDeductionsMap[memberName]) {
                         dayOffDeductionsMap[memberName] = {}
                     }
-                    dayOffDeductionsMap[memberName][weekNum] =
-                        (dayOffDeductionsMap[memberName][weekNum] || 0) + deduction
+                    const currentDeduction = dayOffDeductionsMap[memberName][weekNum] || 0
+                    // Cap deduction at the weekly target (can't deduct more than target)
+                    dayOffDeductionsMap[memberName][weekNum] = Math.min(currentDeduction + deduction, weeklyTarget)
                 })
             }
 
