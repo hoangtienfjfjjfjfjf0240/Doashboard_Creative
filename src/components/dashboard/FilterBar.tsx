@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, Calendar, Users, Filter, RefreshCw, ChevronDown, Check } from 'lucide-react'
-import { format, startOfWeek, addWeeks, subWeeks, subDays, startOfDay, endOfDay, startOfMonth, addDays, isSameDay, getDate, getMonth, addMonths } from 'date-fns'
+import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, subDays, startOfDay, endOfDay, startOfMonth, addDays, isSameDay, getDate, getMonth, addMonths } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { useUser } from '@/contexts/UserContext'
 
@@ -111,7 +111,7 @@ const TIMELINE_2026: MonthData[] = [
 type DatePreset = 'week' | '7days' | '14days' | '28days' | '30days' | 'custom'
 
 const DATE_PRESETS: { key: DatePreset; label: string }[] = [
-    { key: '7days', label: '7 ngày qua' },
+    { key: '7days', label: 'Tuần này' },
     { key: '14days', label: '14 ngày qua' },
     { key: '28days', label: '28 ngày qua' },
     { key: '30days', label: '30 ngày qua' },
@@ -122,8 +122,11 @@ function getDateRangeFromPreset(preset: DatePreset): { start: Date; end: Date } 
     const today = startOfDay(now)
 
     switch (preset) {
-        case '7days':
-            return { start: subDays(today, 6), end: endOfDay(today) }
+        case '7days': {
+            const weekMon = startOfWeek(today, { weekStartsOn: 1 })
+            const weekFri = addDays(weekMon, 4)
+            return { start: weekMon, end: endOfDay(weekFri) }
+        }
         case '14days':
             return { start: subDays(today, 13), end: endOfDay(today) }
         case '28days':
@@ -392,7 +395,7 @@ export default function FilterBar({
         }
         const preset = DATE_PRESETS.find(p => p.key === selectedPreset)
         console.log('Found preset:', preset)
-        return preset?.label || '7 ngày qua'
+        return preset?.label || 'Tuần này'
     }
 
     return (
