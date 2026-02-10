@@ -35,6 +35,7 @@ interface Task {
 
 interface Target {
     user_gid: string
+    week_start_date: string
     target_points: number
 }
 
@@ -129,14 +130,15 @@ export default function GraphicDashboardPage() {
                 setAssignees(uniqueAssignees.sort())
             }
 
-            const startDateStr = format(dateRange.start, 'yyyy-MM-dd')
+            // Expand start by 7 days to catch weeks that overlap
+            const expandedStartStr = format(subDays(dateRange.start, 7), 'yyyy-MM-dd')
             const endDateStr = format(dateRange.end, 'yyyy-MM-dd')
 
             const { data: targetsData } = await supabase
                 .from('targets')
                 .select('*')
                 .eq('project_type', 'graphic')
-                .gte('week_start_date', startDateStr)
+                .gte('week_start_date', expandedStartStr)
                 .lte('week_start_date', endDateStr)
 
             if (targetsData) {
@@ -268,10 +270,25 @@ export default function GraphicDashboardPage() {
     const activeAssignees = new Set(doneTasks.map(t => t.assignee_name).filter(Boolean)).size
     const avgPointsPerVideo = totalVideos > 0 ? totalPoints / totalVideos : 0
 
-    const DEFAULT_TARGET_PER_MEMBER_PER_WEEK = 160
+    // Read target from the targets table per member, fallback to 160 if not set
+    const FALLBACK_TARGET = 160
+
+    // Get target for a specific member (use their stored target, or fallback)
+    const getTargetForMember = (memberName: string): number => {
+        const memberTarget = targets.find(t => t.user_gid === memberName)
+        if (memberTarget) return Number(memberTarget.target_points) || FALLBACK_TARGET
+        return FALLBACK_TARGET
+    }
 
     const daysDiff = Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24)) + 1
     const numWeeks = Math.max(1, Math.ceil(daysDiff / 7))
+
+    // Determine which members are active for target calculation
+    const targetMembers: string[] = (user?.roleGraphic === 'member' && user?.role !== 'admin')
+        ? [user.asanaName || user.fullName || '']
+        : selectedAssignees.length > 0
+            ? selectedAssignees
+            : [...new Set(doneTasks.map(t => t.assignee_name).filter(Boolean))] as string[]
 
     const currentUserDayOffs = dayOffs.filter(d => {
         if (!d.member_name || !d.date) return false
@@ -282,18 +299,37 @@ export default function GraphicDashboardPage() {
         return true
     })
 
+    // Group day off deductions by week, using each member's own target for per-day calculation
     const dayOffDeductionsByWeek: Record<number, number> = {}
     let totalDayOffDeduction = 0
     currentUserDayOffs.forEach(d => {
         const date = new Date(d.date)
         const weekNum = getWeek(date, { weekStartsOn: 1 })
-        const ptsPerDay = DEFAULT_TARGET_PER_MEMBER_PER_WEEK / WORKING_DAYS_PER_WEEK
+        const memberTarget = getTargetForMember(d.member_name || '')
+        const ptsPerDay = memberTarget / WORKING_DAYS_PER_WEEK
         const deduction = d.is_half_day ? ptsPerDay / 2 : ptsPerDay
         dayOffDeductionsByWeek[weekNum] = (dayOffDeductionsByWeek[weekNum] || 0) + deduction
         totalDayOffDeduction += deduction
     })
 
-    const teamTargetPoints = Math.max(0, (DEFAULT_TARGET_PER_MEMBER_PER_WEEK * numWeeks) - totalDayOffDeduction)
+    // Calculate total team target: sum of each active member's target × weeks
+    let teamTargetPoints = 0
+    if (targetMembers.length > 0) {
+        targetMembers.forEach(member => {
+            teamTargetPoints += getTargetForMember(member) * numWeeks
+        })
+    } else {
+        teamTargetPoints = FALLBACK_TARGET * numWeeks
+    }
+    teamTargetPoints = Math.max(0, teamTargetPoints - totalDayOffDeduction)
+
+    // For per-week calculations, use the selected member's target
+    const DEFAULT_TARGET_PER_MEMBER_PER_WEEK = targetMembers.length === 1
+        ? getTargetForMember(targetMembers[0])
+        : targetMembers.length > 0
+            ? targetMembers.reduce((sum, m) => sum + getTargetForMember(m), 0) / targetMembers.length
+            : FALLBACK_TARGET
+
     const teamAchievedPercent = teamTargetPoints > 0 ? (totalPoints / teamTargetPoints) * 100 : 0
 
     const pointsByWeek: Record<number, number> = {}
