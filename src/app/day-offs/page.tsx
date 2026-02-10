@@ -112,20 +112,19 @@ export default function DayOffsPage() {
         const startStr = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
         const endStr = format(endOfMonth(currentMonth), 'yyyy-MM-dd')
 
-        let query = supabase
+        const activeName = isAdmin ? selectedMember : (user.full_name || '')
+        if (!activeName) return
+
+        // Query by member_name so we get both personal day-offs AND holidays
+        // (holidays have user_email='system@holiday' so filtering by user_email would exclude them)
+        const { data } = await supabase
             .from('day_offs')
             .select('*')
+            .eq('member_name', activeName)
             .gte('date', startStr)
             .lte('date', endStr)
             .order('date', { ascending: true })
 
-        if (isAdmin && selectedMember) {
-            query = query.eq('member_name', selectedMember)
-        } else if (!isAdmin) {
-            query = query.eq('user_email', user.email)
-        }
-
-        const { data } = await query
         if (data) setDayOffs(data)
     }
 
@@ -358,6 +357,7 @@ export default function DayOffsPage() {
                                         const isToday = isSameDay(date, new Date())
                                         const isWeekend = getDay(date) === 0 || getDay(date) === 6
                                         const isSelected = selectedDate && isSameDay(date, selectedDate)
+                                        const isHoliday = dayOff?.user_email === 'system@holiday'
 
                                         return (
                                             <button
@@ -367,9 +367,11 @@ export default function DayOffsPage() {
                                                 className={`
                                                     aspect-square rounded-lg text-sm font-medium transition-all relative
                                                     ${dayOff
-                                                        ? dayOff.is_half_day
-                                                            ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30 cursor-default'
-                                                            : 'bg-red-500/20 text-red-400 border border-red-500/30 cursor-default'
+                                                        ? isHoliday
+                                                            ? 'bg-red-600/40 text-red-300 border-2 border-red-500/60 cursor-default font-bold'
+                                                            : dayOff.is_half_day
+                                                                ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30 cursor-default'
+                                                                : 'bg-red-500/20 text-red-400 border border-red-500/30 cursor-default'
                                                         : isSelected
                                                             ? 'bg-purple-600 text-white ring-2 ring-purple-400 shadow-lg'
                                                             : isWeekend
@@ -381,7 +383,10 @@ export default function DayOffsPage() {
                                                 title={dayOff?.reason || (isWeekend ? 'Cuối tuần' : 'Click để đánh dấu nghỉ')}
                                             >
                                                 {format(date, 'd')}
-                                                {dayOff && (
+                                                {isHoliday && (
+                                                    <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full flex items-center justify-center text-[8px] text-white">★</div>
+                                                )}
+                                                {dayOff && !isHoliday && (
                                                     <div className={`absolute -top-1 -right-1 w-3 h-3 ${dayOff.is_half_day ? 'bg-orange-500' : 'bg-red-500'} rounded-full`} />
                                                 )}
                                             </button>
@@ -391,6 +396,10 @@ export default function DayOffsPage() {
 
                                 {/* Legend */}
                                 <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-slate-700">
+                                    <div className="flex items-center gap-2 text-xs text-slate-400">
+                                        <div className="w-3 h-3 rounded bg-red-600/40 border-2 border-red-500/60" />
+                                        <span>Ngày lễ</span>
+                                    </div>
                                     <div className="flex items-center gap-2 text-xs text-slate-400">
                                         <div className="w-3 h-3 rounded bg-red-500/30 border border-red-500/50" />
                                         <span>Nghỉ cả ngày (-{ptsPerDay}đ)</span>
