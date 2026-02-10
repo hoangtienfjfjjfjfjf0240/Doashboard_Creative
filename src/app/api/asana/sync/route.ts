@@ -114,39 +114,50 @@ async function syncProject(projectType: ProjectType): Promise<{ processed: numbe
         throw new Error(`Missing Asana project ID for ${projectType}`)
     }
 
+    const fetchStart = Date.now()
     const asanaTasks = await fetchAsanaTasks(config.projectId)
-    let tasksUpdated = 0
+    console.log(`[Sync ${projectType}] Fetched ${asanaTasks.length} tasks from Asana in ${Date.now() - fetchStart}ms`)
+
+    // ── Step 1: Fetch ALL existing tasks in ONE batch query ──
+    const { data: existingTasksData } = await supabase
+        .from('tasks')
+        .select('asana_id, due_date, name, assignee_name')
+        .eq('project_type', projectType)
+
+    // Build a lookup map for O(1) access
+    const existingMap = new Map<string, { due_date: string | null; name: string; assignee_name: string | null }>()
+    if (existingTasksData) {
+        existingTasksData.forEach(t => existingMap.set(t.asana_id, t))
+    }
+
+    // ── Step 2: Transform all Asana tasks in memory ──
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const allTaskData: any[] = []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const dueDateChanges: any[] = []
 
     for (const task of asanaTasks) {
-        // Find type field (Video Type for creative, Asset for graphic)
         const typeField = task.custom_fields?.find(f => {
             const name = f.name.toLowerCase()
             return config.typeFieldNames.some(tf => name.includes(tf) || name === tf)
         })
-        const videoType = typeField?.enum_value?.name ||
-            typeField?.display_value ||
-            null
+        const videoType = typeField?.enum_value?.name || typeField?.display_value || null
 
-        // Find Quantity field
         const quantityField = task.custom_fields?.find(f => {
             const name = f.name.toLowerCase()
             return config.quantityFieldNames.some(qf => name.includes(qf) || name === qf)
         })
         const videoCount = Math.max(1, quantityField?.number_value || 1)
 
-        // Find CTST (only for creative)
         let ctst: string | null = null
         if (config.hasCTST) {
             const ctstField = task.custom_fields?.find(
                 f => f.name.toLowerCase() === 'ctst' ||
                     f.name.toLowerCase().includes('creative tool')
             )
-            ctst = ctstField?.enum_value?.name ||
-                ctstField?.display_value ||
-                null
+            ctst = ctstField?.enum_value?.name || ctstField?.display_value || null
         }
 
-        // Check Progress custom field (user may use this instead of Asana completion checkbox)
         const progressField = task.custom_fields?.find(
             f => f.name.toLowerCase().trim() === 'progress' ||
                 f.name.toLowerCase().trim() === 'status' ||
@@ -155,11 +166,8 @@ async function syncProject(projectType: ProjectType): Promise<{ processed: numbe
         const progressValue = progressField?.enum_value?.name?.toLowerCase() ||
             progressField?.display_value?.toLowerCase() || ''
         const isProgressDone = progressValue === 'done' || progressValue === 'hoàn thành'
-
-        // Task is done if EITHER Asana checkbox is checked OR Progress custom field is "Done"
         const isDone = task.completed || isProgressDone
 
-        // Get completed_at: use Asana native, or Completed Date custom field, or current time if done
         let completedAt = task.completed_at
         if (!completedAt && isDone) {
             const completedDateField = task.custom_fields?.find(
@@ -169,7 +177,6 @@ async function syncProject(projectType: ProjectType): Promise<{ processed: numbe
             completedAt = completedDateField?.display_value || new Date().toISOString()
         }
 
-        // Calculate points using the right config
         const points = videoType ? (config.pointConfig[videoType] || 0) * videoCount : 0
 
         const taskData = {
@@ -191,55 +198,59 @@ async function syncProject(projectType: ProjectType): Promise<{ processed: numbe
             updated_at: new Date().toISOString(),
         }
 
-        // Track due date changes before upserting
-        const { data: existingTask } = await supabase
-            .from('tasks')
-            .select('due_date, name, assignee_name')
-            .eq('asana_id', task.gid)
-            .single()
+        allTaskData.push(taskData)
 
-        if (existingTask && existingTask.due_date !== taskData.due_date) {
-            await supabase.from('due_date_changes').insert({
+        // Track due date changes in memory (no DB call here)
+        const existing = existingMap.get(task.gid)
+        if (existing && existing.due_date !== taskData.due_date) {
+            dueDateChanges.push({
                 task_id: task.gid,
                 task_name: taskData.name,
                 assignee_name: taskData.assignee_name,
-                old_due_date: existingTask.due_date,
+                old_due_date: existing.due_date,
                 new_due_date: taskData.due_date,
                 changed_by: 'Asana Sync',
                 reason: `Due date changed in Asana (${projectType})`,
                 project_type: projectType,
             })
         }
+    }
 
+    // ── Step 3: Batch insert due date changes (1 query) ──
+    if (dueDateChanges.length > 0) {
+        await supabase.from('due_date_changes').insert(dueDateChanges)
+    }
+
+    // ── Step 4: Batch upsert ALL tasks (in chunks of 500) ──
+    let tasksUpdated = 0
+    const CHUNK_SIZE = 500
+    const dbStart = Date.now()
+    for (let i = 0; i < allTaskData.length; i += CHUNK_SIZE) {
+        const chunk = allTaskData.slice(i, i + CHUNK_SIZE)
         const { error } = await supabase
             .from('tasks')
-            .upsert(taskData, { onConflict: 'asana_id' })
+            .upsert(chunk, { onConflict: 'asana_id' })
 
         if (error) {
-            console.error(`[Sync] Upsert error for ${task.gid}:`, error.message)
+            console.error(`[Sync] Batch upsert error (chunk ${i / CHUNK_SIZE}):`, error.message)
         } else {
-            tasksUpdated++
+            tasksUpdated += chunk.length
         }
     }
 
-    // Clean up stale tasks: remove tasks from Supabase that no longer exist in Asana
-    const asanaGids = asanaTasks.map(t => t.gid)
-    if (asanaGids.length > 0) {
-        const { data: existingTasks } = await supabase
-            .from('tasks')
-            .select('asana_id')
-            .eq('project_type', projectType)
+    // ── Step 5: Clean up stale tasks (1 query) ──
+    const asanaGids = new Set(asanaTasks.map(t => t.gid))
+    if (existingTasksData) {
+        const staleIds = existingTasksData
+            .filter(t => !asanaGids.has(t.asana_id))
+            .map(t => t.asana_id)
 
-        if (existingTasks) {
-            const staleIds = existingTasks
-                .filter(t => !asanaGids.includes(t.asana_id))
-                .map(t => t.asana_id)
-
-            if (staleIds.length > 0) {
-                await supabase.from('tasks').delete().in('asana_id', staleIds)
-            }
+        if (staleIds.length > 0) {
+            await supabase.from('tasks').delete().in('asana_id', staleIds)
         }
     }
+
+    console.log(`[Sync ${projectType}] DB operations completed in ${Date.now() - dbStart}ms (${tasksUpdated} tasks upserted)`)
 
     return { processed: asanaTasks.length, updated: tasksUpdated }
 }

@@ -61,6 +61,7 @@ export default function DashboardPage() {
     // State
     const [loading, setLoading] = useState(true)
     const [syncing, setSyncing] = useState(false)
+    const initialLoadDone = useRef(false)
     const [lastSync, setLastSync] = useState<string>()
     const [user, setUser] = useState<{ email: string; role: string; fullName: string; asanaEmail: string; asanaName: string } | null>(null)
 
@@ -111,8 +112,11 @@ export default function DashboardPage() {
     }, [supabase])
 
     // Fetch data
-    const fetchData = useCallback(async () => {
-        setLoading(true)
+    const fetchData = useCallback(async (isRealtimeRefresh = false) => {
+        // Only show loading spinner on initial load, not on realtime refreshes
+        if (!isRealtimeRefresh && !initialLoadDone.current) {
+            setLoading(true)
+        }
         try {
             const { data: tasks } = await supabase
                 .from('tasks')
@@ -165,6 +169,7 @@ export default function DashboardPage() {
             console.error('Error fetching data:', error)
         } finally {
             setLoading(false)
+            initialLoadDone.current = true
         }
     }, [supabase, weekStart, dateRange]) // Added dateRange dependency
 
@@ -182,11 +187,11 @@ export default function DashboardPage() {
         autoSync()
     }, [loading, allTasks.length])
 
-    // Auto-sync every 5 minutes
+    // Auto-sync every 2 minutes
     const syncingRef = useRef(syncing)
     syncingRef.current = syncing
     useEffect(() => {
-        const AUTO_SYNC_INTERVAL = 5 * 60 * 1000 // 5 minutes
+        const AUTO_SYNC_INTERVAL = 2 * 60 * 1000 // 2 minutes
         const intervalId = setInterval(async () => {
             if (!syncingRef.current) {
                 console.log('[Auto-Sync] Syncing all projects from Asana...', new Date().toLocaleTimeString())
@@ -196,8 +201,8 @@ export default function DashboardPage() {
                         cache: 'no-store',
                     })
                     if (response.ok) {
-                        console.log('[Auto-Sync] Sync complete, refreshing data...')
-                        await fetchData()
+                        console.log('[Auto-Sync] Sync complete')
+                        // Data will auto-refresh via realtime subscription
                     }
                 } catch (error) {
                     console.error('[Auto-Sync] Error:', error)
@@ -206,6 +211,43 @@ export default function DashboardPage() {
         }, AUTO_SYNC_INTERVAL)
         return () => clearInterval(intervalId)
     }, [fetchData])
+
+    // Supabase Realtime: auto-refresh dashboard when tasks table changes
+    useEffect(() => {
+        let timeoutId: NodeJS.Timeout | null = null
+
+        const channel = supabase
+            .channel('dashboard-tasks-realtime')
+            .on('postgres_changes',
+                { event: '*', schema: 'public', table: 'tasks' },
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (payload: any) => {
+                    console.log('[Realtime] Tasks table changed:', payload.eventType)
+                    // Debounce: wait 1.5s to batch multiple rapid changes
+                    if (timeoutId) clearTimeout(timeoutId)
+                    timeoutId = setTimeout(() => {
+                        console.log('[Realtime] Refreshing dashboard data...')
+                        fetchData(true)
+                    }, 1500)
+                }
+            )
+            .on('postgres_changes',
+                { event: '*', schema: 'public', table: 'targets' },
+                () => {
+                    console.log('[Realtime] Targets table changed')
+                    if (timeoutId) clearTimeout(timeoutId)
+                    timeoutId = setTimeout(() => fetchData(true), 1500)
+                }
+            )
+            .subscribe((status) => {
+                console.log('[Realtime] Subscription status:', status)
+            })
+
+        return () => {
+            if (timeoutId) clearTimeout(timeoutId)
+            supabase.removeChannel(channel)
+        }
+    }, [supabase, fetchData])
 
     const handleSync = async () => {
         setSyncing(true)
