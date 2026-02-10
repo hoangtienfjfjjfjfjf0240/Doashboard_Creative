@@ -190,14 +190,14 @@ export default function GraphicDashboardPage() {
         const AUTO_SYNC_INTERVAL = 5 * 60 * 1000 // 5 minutes
         const intervalId = setInterval(async () => {
             if (!syncingRef.current) {
-                console.log('[Auto-Sync Graphic] Syncing from Asana...', new Date().toLocaleTimeString())
+                console.log('[Auto-Sync] Syncing all projects from Asana...', new Date().toLocaleTimeString())
                 try {
-                    const response = await fetch('/api/asana/sync?project=graphic', {
+                    const response = await fetch('/api/asana/sync?project=all', {
                         method: 'POST',
                         cache: 'no-store',
                     })
                     if (response.ok) {
-                        console.log('[Auto-Sync Graphic] Sync complete, refreshing data...')
+                        console.log('[Auto-Sync] Sync complete, refreshing data...')
                         await fetchData()
                     }
                 } catch (error) {

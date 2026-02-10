@@ -189,9 +189,9 @@ export default function DashboardPage() {
         const AUTO_SYNC_INTERVAL = 5 * 60 * 1000 // 5 minutes
         const intervalId = setInterval(async () => {
             if (!syncingRef.current) {
-                console.log('[Auto-Sync] Syncing from Asana...', new Date().toLocaleTimeString())
+                console.log('[Auto-Sync] Syncing all projects from Asana...', new Date().toLocaleTimeString())
                 try {
-                    const response = await fetch('/api/asana/sync?project=creative', {
+                    const response = await fetch('/api/asana/sync?project=all', {
                         method: 'POST',
                         cache: 'no-store',
                     })
