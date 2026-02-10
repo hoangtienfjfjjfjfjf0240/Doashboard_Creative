@@ -272,20 +272,31 @@ export default function DashboardPage() {
     const avgPointsPerVideo = totalVideos > 0 ? totalPoints / totalVideos : 0
 
     // Calculate target for selected date range
-    // Read target from the targets table per member, fallback to 160 if not set
+    // Read target from the targets table per member per week, fallback to 160 if not set
     const FALLBACK_TARGET = 160
 
-    // Get target for a specific member (use their stored target, or fallback)
+    // Get distinct calendar week start dates (Monday) in the date range
+    const distinctWeekStarts: string[] = []
+    let weekCursor = startOfWeek(dateRange.start, { weekStartsOn: 1 })
+    while (weekCursor <= dateRange.end) {
+        distinctWeekStarts.push(format(weekCursor, 'yyyy-MM-dd'))
+        weekCursor = addDays(weekCursor, 7)
+    }
+    const numWeeks = distinctWeekStarts.length
+
+    // Get target for a specific member for a specific week
+    const getTargetForMemberWeek = (memberName: string, weekStartStr: string): number => {
+        const target = targets.find(t => t.user_gid === memberName && t.week_start_date === weekStartStr)
+        if (target) return Number(target.target_points) || FALLBACK_TARGET
+        return FALLBACK_TARGET
+    }
+
+    // Get target for a member (first found, for display/fallback purposes)
     const getTargetForMember = (memberName: string): number => {
-        // Find target for this specific member
         const memberTarget = targets.find(t => t.user_gid === memberName)
         if (memberTarget) return Number(memberTarget.target_points) || FALLBACK_TARGET
         return FALLBACK_TARGET
     }
-
-    // Calculate number of weeks in selected date range
-    const daysDiff = Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24)) + 1
-    const numWeeks = Math.max(1, Math.ceil(daysDiff / 7))
 
     // Determine which members are active for target calculation
     const targetMembers: string[] = user?.role === 'member'
@@ -310,19 +321,21 @@ export default function DashboardPage() {
     currentUserDayOffs.forEach(d => {
         const date = new Date(d.date)
         const weekNum = getWeek(date, { weekStartsOn: 1 })
-        const memberTarget = getTargetForMember(d.member_name || '')
+        const weekStart = format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+        const memberTarget = getTargetForMemberWeek(d.member_name || '', weekStart)
         const ptsPerDay = memberTarget / WORKING_DAYS_PER_WEEK
         const deduction = d.is_half_day ? ptsPerDay / 2 : ptsPerDay
         dayOffDeductionsByWeek[weekNum] = (dayOffDeductionsByWeek[weekNum] || 0) + deduction
         totalDayOffDeduction += deduction
     })
 
-    // Calculate total team target: sum of each active member's target × weeks
-    const activeMemberCount = Math.max(1, targetMembers.length)
+    // Calculate total team target: sum per member per distinct week (no overlap)
     let teamTargetPoints = 0
     if (targetMembers.length > 0) {
         targetMembers.forEach(member => {
-            teamTargetPoints += getTargetForMember(member) * numWeeks
+            distinctWeekStarts.forEach(ws => {
+                teamTargetPoints += getTargetForMemberWeek(member, ws)
+            })
         })
     } else {
         teamTargetPoints = FALLBACK_TARGET * numWeeks
