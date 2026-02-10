@@ -111,7 +111,7 @@ const TIMELINE_2026: MonthData[] = [
 type DatePreset = 'week' | '7days' | '14days' | '28days' | '30days' | 'custom'
 
 const DATE_PRESETS: { key: DatePreset; label: string }[] = [
-    { key: '7days', label: 'Tuần này' },
+    { key: '7days', label: '7 ngày qua' },
     { key: '14days', label: '14 ngày qua' },
     { key: '28days', label: '28 ngày qua' },
     { key: '30days', label: '30 ngày qua' },
@@ -395,7 +395,7 @@ export default function FilterBar({
         }
         const preset = DATE_PRESETS.find(p => p.key === selectedPreset)
         console.log('Found preset:', preset)
-        return preset?.label || 'Tuần này'
+        return preset?.label || '7 ngày qua'
     }
 
     return (
