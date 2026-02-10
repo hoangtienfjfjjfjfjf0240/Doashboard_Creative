@@ -446,9 +446,11 @@ export default function SettingsPage() {
                             <Target className="w-4 h-4 text-purple-400" />
                             <span className="text-sm text-slate-300">Mục tiêu mặc định:</span>
                             <input
-                                type="number"
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 value={defaultTarget}
-                                onChange={(e) => setDefaultTarget(e.target.value)}
+                                onChange={(e) => setDefaultTarget(e.target.value.replace(/[^0-9]/g, ''))}
                                 className="w-24 px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                             />
                             <span className="text-sm text-slate-500">điểm/tuần</span>
@@ -585,13 +587,18 @@ export default function SettingsPage() {
                                                             )}
                                                             {/* Target input - all users can edit their own targets */}
                                                             <input
-                                                                type="number"
-                                                                value={target || ''}
-                                                                onChange={(e) => updateTarget(
-                                                                    member.assignee_name,
-                                                                    week.actualWeekNum,
-                                                                    parseInt(e.target.value) || 0
-                                                                )}
+                                                                type="text"
+                                                                inputMode="numeric"
+                                                                pattern="[0-9]*"
+                                                                value={target === 0 ? '' : target}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value.replace(/[^0-9]/g, '')
+                                                                    updateTarget(
+                                                                        member.assignee_name,
+                                                                        week.actualWeekNum,
+                                                                        val === '' ? 0 : parseInt(val)
+                                                                    )
+                                                                }}
                                                                 placeholder="0"
                                                                 className={`w-14 px-1 py-1 rounded text-center text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 ${hasOriginalTarget
                                                                     ? 'bg-slate-700 text-white'
