@@ -35,7 +35,7 @@ export default function MemberSummaryTable({ data }: MemberSummaryTableProps) {
                         <tr className="border-b border-slate-700/50">
                             <th className="text-left py-2.5 px-3 text-slate-400 font-medium">Thành viên</th>
                             <th className="text-center py-2.5 px-2 text-emerald-400 font-medium">Done</th>
-                            <th className="text-center py-2.5 px-2 text-amber-400 font-medium">Not Done</th>
+                            <th className="text-center py-2.5 px-2 text-amber-400 font-medium">Chưa Done</th>
                             <th className="text-right py-2.5 px-2 text-violet-400 font-medium">Điểm</th>
                             <th className="text-right py-2.5 px-2 text-slate-400 font-medium">Target</th>
                             <th className="text-right py-2.5 px-3 text-slate-400 font-medium">Thiếu/Dư</th>
@@ -90,7 +90,7 @@ export default function MemberSummaryTable({ data }: MemberSummaryTableProps) {
                                                 <TrendingDown className="w-3.5 h-3.5 text-red-400" />
                                             )}
                                             <span className={`font-bold ${gap === 0 ? 'text-slate-500' :
-                                                    isOver ? 'text-emerald-400' : 'text-red-400'
+                                                isOver ? 'text-emerald-400' : 'text-red-400'
                                                 }`}>
                                                 {isOver ? '+' : ''}{gap % 1 === 0 ? gap : gap.toFixed(1)}
                                             </span>

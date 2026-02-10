@@ -10,7 +10,7 @@ interface StatusDonutProps {
 export default function StatusDonut({ done, notDone }: StatusDonutProps) {
     const data = [
         { name: 'Done', value: done, color: '#10b981' },
-        { name: 'Not Done', value: notDone, color: '#f59e0b' },
+        { name: 'Chưa Done', value: notDone, color: '#f59e0b' },
     ]
 
     const total = done + notDone

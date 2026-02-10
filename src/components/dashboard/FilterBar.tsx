@@ -639,7 +639,7 @@ export default function FilterBar({
                                 : 'text-slate-400 hover:text-white'
                                 }`}
                         >
-                            {s === 'all' ? 'All' : s === 'done' ? 'Done' : 'Not Done'}
+                            {s === 'all' ? 'All' : s === 'done' ? 'Done' : 'Chưa Done'}
                         </button>
                     ))}
                 </div>
@@ -704,7 +704,7 @@ export default function FilterBar({
                     <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium mr-1">Filters:</span>
                     {status !== 'all' && (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-violet-500/20 rounded-lg text-xs text-violet-300 border border-violet-500/20">
-                            {status === 'done' ? '✅ Done' : '⏳ Not Done'}
+                            {status === 'done' ? '✅ Done' : '⏳ Chưa Done'}
                             <button onClick={() => onStatusChange('all')} className="hover:text-white ml-0.5">×</button>
                         </span>
                     )}

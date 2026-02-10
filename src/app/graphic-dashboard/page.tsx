@@ -278,13 +278,16 @@ export default function GraphicDashboardPage() {
     const FALLBACK_TARGET = 160
 
     // Get distinct calendar week start dates (Monday) in the date range
-    const distinctWeekStarts: string[] = []
+    const daysDiff = Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    const numWeeks = Math.max(1, Math.ceil(daysDiff / 7))
+    const allWeekStarts: string[] = []
     let weekCursor = startOfWeek(dateRange.start, { weekStartsOn: 1 })
     while (weekCursor <= dateRange.end) {
-        distinctWeekStarts.push(format(weekCursor, 'yyyy-MM-dd'))
+        allWeekStarts.push(format(weekCursor, 'yyyy-MM-dd'))
         weekCursor = addDays(weekCursor, 7)
     }
-    const numWeeks = distinctWeekStarts.length
+    // Cap to numWeeks most recent week starts to avoid over-counting
+    const distinctWeekStarts = allWeekStarts.length > numWeeks ? allWeekStarts.slice(-numWeeks) : allWeekStarts
 
     // Get target for a specific member for a specific week
     const getTargetForMemberWeek = (memberName: string, weekStartStr: string): number => {

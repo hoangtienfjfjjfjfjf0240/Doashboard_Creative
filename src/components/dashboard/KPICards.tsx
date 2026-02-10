@@ -48,7 +48,7 @@ export default function KPICards({
             glowColor: 'hover:shadow-emerald-500/15',
         },
         {
-            title: 'Not Done',
+            title: 'Chưa Done',
             value: notDoneTasks.toLocaleString(),
             icon: XCircle,
             bgColor: 'bg-amber-500/10',
