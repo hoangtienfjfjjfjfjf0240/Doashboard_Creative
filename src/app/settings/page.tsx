@@ -535,6 +535,9 @@ export default function SettingsPage() {
                                                 {week.label}
                                             </th>
                                         ))}
+                                        <th className="px-3 py-3 text-xs font-semibold text-center whitespace-nowrap min-w-[90px] bg-yellow-600/20 text-yellow-300 sticky right-0 z-20">
+                                            TOTAL
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-700/50">
@@ -615,6 +618,39 @@ export default function SettingsPage() {
                                                     </td>
                                                 )
                                             })}
+                                            {/* Total column */}
+                                            {(() => {
+                                                let totalActual = 0
+                                                let totalTarget = 0
+                                                weeks2026.forEach(week => {
+                                                    const t = member.targets[week.actualWeekNum]
+                                                    const d = member.dayOffDeductions[week.actualWeekNum] || 0
+                                                    const adj = t !== undefined && t > 0 ? Math.max(0, Math.round((t - d) * 10) / 10) : 0
+                                                    totalTarget += adj
+                                                    totalActual += member.actualPoints[week.actualWeekNum] || 0
+                                                })
+                                                const pct = totalTarget > 0 ? (totalActual / totalTarget) * 100 : 0
+                                                const isAchieved = pct >= 100
+                                                return (
+                                                    <td className="px-2 py-2 text-center bg-yellow-600/10 sticky right-0 z-10 border-l border-yellow-600/30">
+                                                        <div className="flex flex-col items-center gap-1">
+                                                            <div className={`text-sm font-bold px-2 py-0.5 rounded ${totalActual === 0 && totalTarget === 0
+                                                                    ? 'text-slate-500'
+                                                                    : isAchieved
+                                                                        ? 'text-green-400 bg-green-500/30'
+                                                                        : 'text-yellow-400 bg-yellow-500/30'
+                                                                }`}>
+                                                                {totalActual > 0 ? (Number.isInteger(totalActual) ? totalActual : totalActual.toFixed(1)) : '-'}/{totalTarget > 0 ? totalTarget : '-'}
+                                                            </div>
+                                                            {totalTarget > 0 && (
+                                                                <div className="text-[10px] text-yellow-400">
+                                                                    {pct.toFixed(0)}%
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                )
+                                            })()}
                                         </tr>
                                     ))}
                                 </tbody>
