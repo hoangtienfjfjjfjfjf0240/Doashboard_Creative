@@ -28,7 +28,7 @@ const BAR_GRADIENTS = [
     { gradient: 'linear-gradient(to top, #f59e0b, #fbbf24)', glow: 'rgba(245,158,11,0.3)' },
 ]
 
-export default function DailyPointsChart({ tasks, dateRange, dateField = 'completed_at' }: DailyPointsChartProps) {
+export default function DailyPointsChart({ tasks, dateRange, dateField = 'due_date' }: DailyPointsChartProps) {
     const start = dateRange?.start || new Date()
     const end = dateRange?.end || new Date()
     const allDays = eachDayOfInterval({ start, end })

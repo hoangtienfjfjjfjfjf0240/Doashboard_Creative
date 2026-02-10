@@ -251,14 +251,18 @@ export default function GraphicDashboardPage() {
         return true
     })
 
-    // Use due_date to determine which date range a done task belongs to
+    // Use due_date for all date calculations
     const displayTasks = baseFilteredTasks.filter(task => {
+        const dueDate = task.due_date
         if (task.status === 'done') {
-            const dueDate = task.due_date || (task.completed_at ? task.completed_at.substring(0, 10) : null)
             if (!dueDate) return false
             return dueDate >= dateRangeStartStr && dueDate <= dateRangeEndStr
         }
-        return task.status === 'not_done'
+        // not_done tasks: filter by due_date if available, otherwise include
+        if (dueDate) {
+            return dueDate >= dateRangeStartStr && dueDate <= dateRangeEndStr
+        }
+        return true
     })
 
     const doneTasks = displayTasks.filter(t => t.status === 'done')
@@ -350,7 +354,7 @@ export default function GraphicDashboardPage() {
 
     const pointsByWeek: Record<number, number> = {}
     doneTasks.forEach(task => {
-        const dueDate = task.due_date || (task.completed_at ? task.completed_at.substring(0, 10) : null)
+        const dueDate = task.due_date
         if (dueDate) {
             const d = new Date(dueDate)
             const weekNum = getWeek(d, { weekStartsOn: 1 })
@@ -367,7 +371,7 @@ export default function GraphicDashboardPage() {
 
         const memberPointsByWeek: Record<number, number> = {}
         memberAllDone.forEach(task => {
-            const dueDate = task.due_date || (task.completed_at ? task.completed_at.split('T')[0] : null)
+            const dueDate = task.due_date
             if (dueDate) {
                 const d = new Date(dueDate)
                 if (d.getFullYear() === 2026 && d.getMonth() >= 1) {

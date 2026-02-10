@@ -218,7 +218,7 @@ export default function TaskTable({ doneTasks, notDoneTasks, showOverdueOnly = f
                                 onClick={() => toggleSort('due_date')}
                             >
                                 <span className="flex items-center gap-1">
-                                    {activeTab === 'done' ? 'Completed' : 'Due Date'} <SortIcon field="due_date" />
+                                    {activeTab === 'done' ? 'Due Date' : 'Due Date'} <SortIcon field="due_date" />
                                 </span>
                             </th>
                             <th className="text-center px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">
@@ -268,11 +268,7 @@ export default function TaskTable({ doneTasks, notDoneTasks, showOverdueOnly = f
                                             <span className="text-sm font-medium text-purple-400">{(task.points || 0) % 1 === 0 ? (task.points || 0) : (task.points || 0).toFixed(1)}</span>
                                         </td>
                                         <td className="px-4 py-3">
-                                            {activeTab === 'done' && task.completed_at ? (
-                                                <span className="text-sm text-slate-400">
-                                                    {format(parseISO(task.completed_at), 'MMM d, yyyy')}
-                                                </span>
-                                            ) : task.due_date ? (
+                                            {task.due_date ? (
                                                 <span className={`text-sm ${isOverdue ? 'text-red-400' : 'text-slate-400'}`}>
                                                     {format(parseISO(task.due_date), 'MMM d, yyyy')}
                                                     {isOverdue && ' ⚠️'}

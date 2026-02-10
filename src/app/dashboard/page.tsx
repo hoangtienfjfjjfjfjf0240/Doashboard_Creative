@@ -255,11 +255,16 @@ export default function DashboardPage() {
     })
 
     const displayTasks = baseFilteredTasks.filter(task => {
-        if (task.status === 'done' && task.completed_at) {
-            const completedDate = task.completed_at.split('T')[0]
-            return completedDate >= dateRangeStartStr && completedDate <= dateRangeEndStr
+        const dueDate = task.due_date
+        if (task.status === 'done') {
+            if (!dueDate) return false
+            return dueDate >= dateRangeStartStr && dueDate <= dateRangeEndStr
         }
-        return task.status === 'not_done'
+        // not_done tasks: filter by due_date if available, otherwise include
+        if (dueDate) {
+            return dueDate >= dateRangeStartStr && dueDate <= dateRangeEndStr
+        }
+        return true
     })
 
     const doneTasks = displayTasks.filter(t => t.status === 'done')
@@ -354,9 +359,10 @@ export default function DashboardPage() {
     // Calculate weeks achieved (weeks where points >= adjusted target for that week)
     const pointsByWeek: Record<number, number> = {}
     doneTasks.forEach(task => {
-        if (task.completed_at) {
-            const completedDate = new Date(task.completed_at)
-            const weekNum = getWeek(completedDate, { weekStartsOn: 1 })
+        const dueDate = task.due_date
+        if (dueDate) {
+            const d = new Date(dueDate)
+            const weekNum = getWeek(d, { weekStartsOn: 1 })
             pointsByWeek[weekNum] = (pointsByWeek[weekNum] || 0) + (task.points || 0)
         }
     })
@@ -403,10 +409,7 @@ export default function DashboardPage() {
         const date = addDays(weekStart, i)
         const dayStr = format(date, 'yyyy-MM-dd')
         const dayTasks = doneTasks.filter(t => {
-            if (t.completed_at) {
-                return t.completed_at.split('T')[0] === dayStr
-            }
-            return false
+            return t.due_date === dayStr
         })
         return {
             day: format(date, 'EEE'),
@@ -422,14 +425,15 @@ export default function DashboardPage() {
         const memberAllDone = allDoneTasks.filter(t => t.assignee_name === name)
         const totalPoints = memberAllDone.reduce((sum, t) => sum + (t.points || 0), 0)
 
-        // Group by week using completed_at
+        // Group by week using due_date
         const memberPointsByWeek: Record<number, number> = {}
         memberAllDone.forEach(task => {
-            if (task.completed_at) {
-                const completedDate = new Date(task.completed_at)
+            const dueDate = task.due_date
+            if (dueDate) {
+                const d = new Date(dueDate)
                 // Only count 2026 weeks
-                if (completedDate.getFullYear() === 2026 && completedDate.getMonth() >= 1) {
-                    const weekNum = getWeek(completedDate, { weekStartsOn: 1 })
+                if (d.getFullYear() === 2026 && d.getMonth() >= 1) {
+                    const weekNum = getWeek(d, { weekStartsOn: 1 })
                     memberPointsByWeek[weekNum] = (memberPointsByWeek[weekNum] || 0) + (task.points || 0)
                 }
             }
