@@ -596,7 +596,7 @@ export default function SettingsPage() {
                                                                 type="text"
                                                                 inputMode="numeric"
                                                                 pattern="[0-9]*"
-                                                                value={target === 0 ? '' : target}
+                                                                value={target ? target : ''}
                                                                 onChange={(e) => {
                                                                     const val = e.target.value.replace(/[^0-9]/g, '')
                                                                     updateTarget(
