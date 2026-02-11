@@ -23,8 +23,8 @@ interface FilterBarProps {
     dateRange?: { start: Date; end: Date }
     onDateRangeChange?: (range: { start: Date; end: Date }) => void
     // Controlled filter state
-    selectedPreset: 'week' | '7days' | '14days' | '28days' | '30days' | 'custom'
-    onPresetChange: (preset: 'week' | '7days' | '14days' | '28days' | '30days' | 'custom') => void
+    selectedPreset: DatePreset
+    onPresetChange: (preset: DatePreset) => void
     selectedWeeks: Set<string>
     onWeeksChange: (weeks: Set<string>) => void
 }
@@ -108,24 +108,50 @@ const TIMELINE_2026: MonthData[] = [
     },
 ]
 
-type DatePreset = 'week' | '7days' | '14days' | '28days' | '30days' | 'custom'
+type DatePreset = 'week' | '7days' | '14days' | '28days' | '30days' | 'month-1' | 'month-2' | 'month-3' | 'month-4' | 'month-5' | 'custom'
 
 const DATE_PRESETS: { key: DatePreset; label: string }[] = [
+    { key: 'week', label: 'Tuần này' },
     { key: '7days', label: '7 ngày qua' },
     { key: '14days', label: '14 ngày qua' },
     { key: '28days', label: '28 ngày qua' },
     { key: '30days', label: '30 ngày qua' },
 ]
 
+// Month presets for 2026 (Feb-Jun)
+const MONTH_PRESETS: { key: DatePreset; label: string; monthIndex: number; year: number }[] = [
+    { key: 'month-1', label: 'Tháng 2 / 2026', monthIndex: 1, year: 2026 },
+    { key: 'month-2', label: 'Tháng 3 / 2026', monthIndex: 2, year: 2026 },
+    { key: 'month-3', label: 'Tháng 4 / 2026', monthIndex: 3, year: 2026 },
+    { key: 'month-4', label: 'Tháng 5 / 2026', monthIndex: 4, year: 2026 },
+    { key: 'month-5', label: 'Tháng 6 / 2026', monthIndex: 5, year: 2026 },
+]
+
 function getDateRangeFromPreset(preset: DatePreset): { start: Date; end: Date } {
     const now = new Date()
     const today = startOfDay(now)
 
+    // Check if it's a month preset
+    const monthPreset = MONTH_PRESETS.find(m => m.key === preset)
+    if (monthPreset) {
+        const monthStart = new Date(monthPreset.year, monthPreset.monthIndex, 1)
+        const monthEnd = new Date(monthPreset.year, monthPreset.monthIndex + 1, 0) // last day of month
+        return { start: monthStart, end: endOfDay(monthEnd) }
+    }
+
     switch (preset) {
-        case '7days': {
+        case 'week': {
+            // Tuần này: Mon-Fri of current week
             const weekMon = startOfWeek(today, { weekStartsOn: 1 })
             const weekFri = addDays(weekMon, 4)
             return { start: weekMon, end: endOfDay(weekFri) }
+        }
+        case '7days': {
+            // 7 ngày qua: Mon-Fri of PREVIOUS week
+            const thisWeekMon = startOfWeek(today, { weekStartsOn: 1 })
+            const lastWeekMon = subDays(thisWeekMon, 7)
+            const lastWeekFri = addDays(lastWeekMon, 4)
+            return { start: lastWeekMon, end: endOfDay(lastWeekFri) }
         }
         case '14days':
             return { start: subDays(today, 13), end: endOfDay(today) }
@@ -385,17 +411,13 @@ export default function FilterBar({
     }
 
     const getDateRangeLabel = () => {
-        console.log('getDateRangeLabel - selectedPreset:', selectedPreset, 'dateRange:', dateRange)
-        // Use dateRange when weeks are selected (controlled by parent)
-        if (selectedPreset === 'week' && dateRange) {
-            return `${format(dateRange.start, 'dd/MM')} - ${format(dateRange.end, 'dd/MM/yyyy')}`
-        }
+        // For custom or week-selection, show date range
         if (selectedPreset === 'custom' && dateRange) {
             return `${format(dateRange.start, 'dd/MM')} - ${format(dateRange.end, 'dd/MM/yyyy')}`
         }
-        const preset = DATE_PRESETS.find(p => p.key === selectedPreset)
-        console.log('Found preset:', preset)
-        return preset?.label || '7 ngày qua'
+        // For named presets (week, 7days, 14days, etc.), show their label
+        const preset = [...DATE_PRESETS, ...MONTH_PRESETS].find(p => p.key === selectedPreset)
+        return preset?.label || 'Tuần này'
     }
 
     return (
@@ -484,6 +506,23 @@ export default function FilterBar({
                                     </div>
                                     <div className="p-2">
                                         {DATE_PRESETS.map(preset => (
+                                            <button
+                                                key={preset.key}
+                                                onClick={() => handlePresetChange(preset.key)}
+                                                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between ${selectedPreset === preset.key && selectedWeeks.size === 0
+                                                    ? 'bg-purple-500/20 text-purple-300'
+                                                    : 'text-slate-300 hover:bg-slate-700'
+                                                    }`}
+                                            >
+                                                <span>{preset.label}</span>
+                                                {selectedPreset === preset.key && selectedWeeks.size === 0 && (
+                                                    <Check className="w-4 h-4" />
+                                                )}
+                                            </button>
+                                        ))}
+                                        <hr className="my-2 border-slate-700" />
+                                        <p className="text-[10px] text-slate-500 uppercase tracking-wider font-medium px-3 py-1">Theo tháng</p>
+                                        {MONTH_PRESETS.map(preset => (
                                             <button
                                                 key={preset.key}
                                                 onClick={() => handlePresetChange(preset.key)}

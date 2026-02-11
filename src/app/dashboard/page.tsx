@@ -70,12 +70,14 @@ export default function DashboardPage() {
     const [selectedAssignees, setSelectedAssignees] = useState<string[]>([])
     const [status, setStatus] = useState<'all' | 'done' | 'not_done'>('all')
     const [selectedVideoTypes, setSelectedVideoTypes] = useState<string[]>([])
-    const [dateRange, setDateRange] = useState(() => ({
-        start: subDays(new Date(), 6),
-        end: new Date()
-    }))
+    const [dateRange, setDateRange] = useState(() => {
+        const today = new Date()
+        const weekMon = startOfWeek(today, { weekStartsOn: 1 })
+        const weekFri = addDays(weekMon, 4)
+        return { start: weekMon, end: weekFri }
+    })
     // Lift filter state from FilterBar to prevent reset on re-render
-    const [selectedPreset, setSelectedPreset] = useState<'week' | '7days' | '14days' | '28days' | '30days' | 'custom'>('7days')
+    const [selectedPreset, setSelectedPreset] = useState<'week' | '7days' | '14days' | '28days' | '30days' | 'month-1' | 'month-2' | 'month-3' | 'month-4' | 'month-5' | 'custom'>('week')
     const [selectedWeeks, setSelectedWeeks] = useState<Set<string>>(new Set())
 
     // Data state
@@ -612,13 +614,19 @@ export default function DashboardPage() {
                         totalWeeks={24}
                     />
 
-                    {/* Row 2: Charts (smaller) */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-                        <VideoTypeMixChart data={doneTasks} />
-                        <DailyPointsChart tasks={doneTasks} dateRange={dateRange} dateField="due_date" />
+                    {/* Row 2: Charts — Points chart bigger, Video chart smaller */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4 items-stretch">
+                        <div className="lg:col-span-2 flex">
+                            <div className="flex-1">
+                                <DailyPointsChart tasks={doneTasks} dateRange={dateRange} dateField="due_date" />
+                            </div>
+                        </div>
+                        <div className="lg:col-span-1 flex">
+                            <div className="flex-1">
+                                <VideoTypeMixChart data={doneTasks} />
+                            </div>
+                        </div>
                     </div>
-
-
 
                     {/* Row 3: Leaderboard + Due Date Stats + CTST */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">

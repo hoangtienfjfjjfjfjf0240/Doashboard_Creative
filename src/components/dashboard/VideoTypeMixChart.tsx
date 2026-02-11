@@ -94,7 +94,7 @@ export default function VideoTypeMixChart({ data, unit = 'video' }: VideoTypeMix
     const defaultUnitLabel = isImageMode ? 'items' : 'videos'
 
     return (
-        <div className="glass-card p-5 card-hover">
+        <div className="glass-card p-5 card-hover h-full">
             <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2.5">
                     <div className="w-9 h-9 rounded-xl bg-purple-500/15 flex items-center justify-center">
