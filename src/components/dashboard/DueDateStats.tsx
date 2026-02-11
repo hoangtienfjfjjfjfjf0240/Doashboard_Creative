@@ -7,23 +7,67 @@ interface Task {
     status: 'done' | 'not_done'
     completed_at: string | null
     due_date: string | null
+    asana_id?: string
+}
+
+interface DueDateChange {
+    task_id: string
+    old_due_date: string | null
+    new_due_date: string | null
+    changed_at: string
 }
 
 interface DueDateStatsProps {
     tasks: Task[]
+    dueDateChanges?: DueDateChange[]
 }
 
-export default function DueDateStats({ tasks }: DueDateStatsProps) {
+export default function DueDateStats({ tasks, dueDateChanges = [] }: DueDateStatsProps) {
+    // Build a map: task_id → list of due_date changes
+    const changesByTask = new Map<string, DueDateChange[]>()
+    dueDateChanges.forEach(change => {
+        const list = changesByTask.get(change.task_id) || []
+        list.push(change)
+        changesByTask.set(change.task_id, list)
+    })
+
+    // Check if a task had a late due_date change
+    // Late = due_date was modified AFTER the old_due_date day ended (next day or later)
+    const isTaskLateByDueDateChange = (taskId: string): boolean => {
+        const changes = changesByTask.get(taskId)
+        if (!changes || changes.length === 0) return false
+
+        return changes.some(change => {
+            if (!change.old_due_date || !change.changed_at) return false
+            // old_due_date is like "2026-01-19"
+            // changed_at is like "2026-01-20T10:30:00.000Z"
+            // Late if changed_at date > old_due_date date
+            const oldDueDay = change.old_due_date.split('T')[0] // "2026-01-19"
+            const changedDay = change.changed_at.split('T')[0]  // "2026-01-20"
+            return changedDay > oldDueDay
+        })
+    }
+
     const stats = tasks.reduce((acc, task) => {
         if (!task.assignee_name || task.status !== 'done' || !task.completed_at || !task.due_date) return acc
         if (!acc[task.assignee_name]) acc[task.assignee_name] = { total: 0, onTime: 0, late: 0 }
         acc[task.assignee_name].total++
-        const completedDate = task.completed_at.split('T')[0]
-        if (completedDate > task.due_date) {
+
+        // Check 1: Was due_date changed after the original deadline? → Late
+        const taskId = task.asana_id || ''
+        if (taskId && isTaskLateByDueDateChange(taskId)) {
             acc[task.assignee_name].late++
-        } else {
-            acc[task.assignee_name].onTime++
         }
+        // Check 2: Was the task completed after the due_date? → Late
+        else {
+            const completedDate = task.completed_at.split('T')[0]
+            if (completedDate > task.due_date) {
+                acc[task.assignee_name].late++
+            } else {
+                acc[task.assignee_name].onTime++
+            }
+        }
+
         return acc
     }, {} as Record<string, { total: number; onTime: number; late: number }>)
 

@@ -89,6 +89,7 @@ export default function GraphicDashboardPage() {
     const [assignees, setAssignees] = useState<string[]>([])
     const [targets, setTargets] = useState<Target[]>([])
     const [dayOffs, setDayOffs] = useState<DayOffEntry[]>([])
+    const [dueDateChanges, setDueDateChanges] = useState<{ task_id: string; old_due_date: string | null; new_due_date: string | null; changed_at: string }[]>([])
 
     // Get current user
     useEffect(() => {
@@ -144,8 +145,6 @@ export default function GraphicDashboardPage() {
                 .from('targets')
                 .select('*')
                 .eq('project_type', 'graphic')
-                .gte('week_start_date', expandedStartStr)
-                .lte('week_start_date', endDateStr)
 
             if (targetsData) {
                 setTargets(targetsData)
@@ -157,6 +156,16 @@ export default function GraphicDashboardPage() {
 
             if (dayOffsData) {
                 setDayOffs(dayOffsData)
+            }
+
+            // Fetch due_date_changes for deadline rate calculation
+            const { data: changesData } = await supabase
+                .from('due_date_changes')
+                .select('task_id, old_due_date, new_due_date, changed_at')
+                .eq('project_type', 'graphic')
+
+            if (changesData) {
+                setDueDateChanges(changesData)
             }
 
             const { data: syncLogs } = await supabase
@@ -348,19 +357,24 @@ export default function GraphicDashboardPage() {
     }
 
     // Determine which members are active for target calculation
+    // Use members from the targets table (same as settings page), not from doneTasks
+    const targetTableMembers = [...new Set(targets.map(t => t.user_gid).filter(Boolean))] as string[]
     const targetMembers: string[] = (user?.roleGraphic === 'member' && user?.role !== 'admin')
         ? [user.asanaName || user.fullName || '']
         : selectedAssignees.length > 0
             ? selectedAssignees
-            : [...new Set(doneTasks.map(t => t.assignee_name).filter(Boolean))] as string[]
+            : targetTableMembers.length > 0
+                ? targetTableMembers
+                : [...new Set(doneTasks.map(t => t.assignee_name).filter(Boolean))] as string[]
 
     const currentUserDayOffs = dayOffs.filter(d => {
         if (!d.member_name || !d.date) return false
         const dateStr = d.date
         if (dateStr < dateRangeStartStr || dateStr > dateRangeEndStr) return false
+        // Only include day offs for members in this project's target list
         if (selectedAssignees.length > 0) return selectedAssignees.includes(d.member_name)
         if ((user?.roleGraphic === 'member' || user?.role === 'member') && user.fullName) return d.member_name.toLowerCase().trim() === user.fullName.toLowerCase().trim()
-        return true
+        return targetMembers.includes(d.member_name)
     })
 
     // Group day off deductions by week, using each member's target for that specific week
@@ -567,7 +581,7 @@ export default function GraphicDashboardPage() {
                     {/* Row 3: Leaderboard + Due Date Stats (NO CTST for Graphic) */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
                         <Leaderboard data={leaderboardData} />
-                        <DueDateStats tasks={displayTasks} />
+                        <DueDateStats tasks={displayTasks} dueDateChanges={dueDateChanges} />
                     </div>
 
                     {/* Row 4: Task Tables */}
