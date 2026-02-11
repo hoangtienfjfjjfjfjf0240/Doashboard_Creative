@@ -246,25 +246,26 @@ export default function SettingsPage() {
             }
 
             // Calculate actual points from completed tasks
+            // Use due_date for week grouping (consistent with dashboard overview)
             if (tasks) {
                 tasks.forEach(task => {
                     if (!task.assignee_name) return
                     if (task.status !== 'done') return
                     if (user.role === 'member' && task.assignee_name !== user.asanaName && task.assignee_name !== user.fullName) return
 
-                    const completedDate = task.completed_at
-                        ? new Date(task.completed_at)
-                        : task.due_date ? new Date(task.due_date) : null
+                    // Use due_date to determine which week the task belongs to
+                    // This matches the dashboard overview logic
+                    const taskDate = task.due_date ? new Date(task.due_date) : null
 
-                    if (!completedDate) return
+                    if (!taskDate) return
 
-                    const year = completedDate.getFullYear()
-                    const month = completedDate.getMonth()
+                    const year = taskDate.getFullYear()
+                    const month = taskDate.getMonth()
 
                     if (year !== 2026) return
                     if (month < 1) return
 
-                    const weekNum = getWeek(completedDate, { weekStartsOn: 1 })
+                    const weekNum = getWeek(taskDate, { weekStartsOn: 1 })
                     const points = task.points || 0
 
                     if (!actualPointsMap[task.assignee_name]) {

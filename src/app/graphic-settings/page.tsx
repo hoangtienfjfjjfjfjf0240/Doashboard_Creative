@@ -198,10 +198,11 @@ export default function GraphicSettingsPage() {
                 if (tasks) {
                     tasks.forEach(task => {
                         if (!task.assignee_name || task.status !== 'done') return
-                        const completedDate = task.completed_at ? new Date(task.completed_at) : task.due_date ? new Date(task.due_date) : null
-                        if (!completedDate) return
-                        if (completedDate.getFullYear() !== 2026 || completedDate.getMonth() < 1) return
-                        const weekNum = getWeek(completedDate, { weekStartsOn: 1 })
+                        // Use due_date for week grouping (consistent with dashboard overview)
+                        const taskDate = task.due_date ? new Date(task.due_date) : null
+                        if (!taskDate) return
+                        if (taskDate.getFullYear() !== 2026 || taskDate.getMonth() < 1) return
+                        const weekNum = getWeek(taskDate, { weekStartsOn: 1 })
                         if (!actualPointsMap[task.assignee_name]) actualPointsMap[task.assignee_name] = {}
                         actualPointsMap[task.assignee_name][weekNum] = (actualPointsMap[task.assignee_name][weekNum] || 0) + (task.points || 0)
                     })
