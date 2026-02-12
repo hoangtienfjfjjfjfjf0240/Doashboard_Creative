@@ -364,7 +364,7 @@ export default function FilterBar({
         if (minStart && maxEnd) {
             const newRange = { start: minStart, end: endOfDay(maxEnd) }
             console.log('Setting appliedRange:', newRange)
-            onPresetChange('week')
+            onPresetChange('custom')
             setAppliedRange(newRange)
             if (onDateRangeChange) {
                 onDateRangeChange(newRange)
@@ -412,7 +412,7 @@ export default function FilterBar({
 
     const getDateRangeLabel = () => {
         // For custom or week-selection, show date range
-        if (selectedPreset === 'custom' && dateRange) {
+        if ((selectedPreset === 'custom' || selectedWeeks.size > 0) && dateRange) {
             return `${format(dateRange.start, 'dd/MM')} - ${format(dateRange.end, 'dd/MM/yyyy')}`
         }
         // For named presets (week, 7days, 14days, etc.), show their label

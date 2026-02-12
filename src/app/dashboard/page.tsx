@@ -630,8 +630,8 @@ export default function DashboardPage() {
 
                     {/* Row 2: Charts — Points chart bigger, Video chart smaller */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4 items-stretch">
-                        <div className="lg:col-span-2 flex">
-                            <div className="flex-1">
+                        <div className="lg:col-span-2 flex min-w-0 overflow-hidden">
+                            <div className="flex-1 min-w-0">
                                 <DailyPointsChart tasks={doneTasks} dateRange={dateRange} dateField="due_date" />
                             </div>
                         </div>

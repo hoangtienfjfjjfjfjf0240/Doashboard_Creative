@@ -89,6 +89,11 @@ export default function DailyPointsChart({ tasks, dateRange, dateField = 'due_da
     // Bar inner max-width: thin enough but visible
     const barInnerMax = numDays <= 5 ? 36 : numDays <= 10 ? 30 : numDays <= 20 ? 24 : 18
 
+    // When there are many days (>15), enable horizontal scrolling with a min-width per bar
+    const needsScroll = numDays > 15
+    const minBarWidth = 44 // px per bar slot for readability
+    const scrollMinWidth = needsScroll ? numDays * minBarWidth : undefined
+
     return (
         <div className="glass-card p-4 card-hover h-full flex flex-col">
             {/* Header */}
@@ -113,67 +118,69 @@ export default function DailyPointsChart({ tasks, dateRange, dateField = 'due_da
                     Chưa có dữ liệu
                 </div>
             ) : (
-                <div className="flex-1 flex flex-col">
-                    {/* Week labels row */}
-                    {isMultiWeek && (
-                        <div className="flex w-full mb-1" style={{ gap: '2px' }}>
-                            {weekGroups.map(group => (
-                                <div key={group.weekLabel} style={{ flex: group.days.length }} className="text-center">
-                                    <span className="text-[9px] text-purple-400/80 font-semibold">{group.weekLabel}</span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Bars row: flex-1 per bar, spread across full width */}
-                    <div className="flex-1 flex items-end w-full" style={{ minHeight: '120px', gap: '2px' }}>
-                        {chartData.map((item, globalIdx) => {
-                            const heightPercent = maxPoints > 0 ? (item.points / maxPoints) * 100 : 0
-                            const barHeight = item.points === 0 ? '3px' : `${Math.max(heightPercent * 0.85, 6)}%`
-                            const colorSet = BAR_GRADIENTS[globalIdx % BAR_GRADIENTS.length]
-                            const isBest = bestDay && item === bestDay && item.points > 0
-                            const isEmpty = item.points === 0
-
-                            return (
-                                <div key={item.dayKey} className="flex-1 flex flex-col items-center justify-end group min-w-0 h-full">
-                                    {/* Points value */}
-                                    <div className={`text-[10px] font-bold mb-0.5 whitespace-nowrap ${isEmpty ? 'text-slate-700' :
-                                        isBest ? 'text-yellow-300' : 'text-white/80'
-                                        }`}>
-                                        {isBest && <Sparkles className="w-2.5 h-2.5 inline mr-0.5 text-yellow-400" />}
-                                        {isEmpty ? '—' : item.points % 1 === 0 ? item.points : item.points.toFixed(1)}
+                <div className={`flex-1 flex flex-col ${needsScroll ? 'overflow-x-auto overflow-y-hidden' : ''}`}>
+                    <div style={scrollMinWidth ? { minWidth: `${scrollMinWidth}px` } : undefined} className="flex-1 flex flex-col">
+                        {/* Week labels row */}
+                        {isMultiWeek && (
+                            <div className="flex w-full mb-1" style={{ gap: '2px' }}>
+                                {weekGroups.map(group => (
+                                    <div key={group.weekLabel} style={{ flex: group.days.length }} className="text-center">
+                                        <span className="text-[9px] text-purple-400/80 font-semibold">{group.weekLabel}</span>
                                     </div>
-                                    {/* Bar */}
-                                    <div
-                                        className={`rounded-t-lg group-hover:brightness-110 transition-all duration-200 ${isEmpty ? 'bg-slate-700/20 border border-dashed border-slate-600/20' : ''}`}
-                                        style={{
-                                            width: `${barInnerMax}px`,
-                                            height: barHeight,
-                                            background: isEmpty ? undefined : colorSet.gradient,
-                                            boxShadow: isEmpty ? undefined : `0 2px 12px ${colorSet.glow}`,
-                                        }}
-                                    />
-                                </div>
-                            )
-                        })}
-                    </div>
+                                ))}
+                            </div>
+                        )}
 
-                    {/* Labels row */}
-                    <div className="flex w-full mt-1" style={{ gap: '2px' }}>
-                        {chartData.map((item) => {
-                            const isBest = bestDay && item === bestDay && item.points > 0
-                            const isEmpty = item.points === 0
-                            return (
-                                <div key={item.dayKey} className="flex-1 flex flex-col items-center min-w-0">
-                                    <span className={`text-[10px] font-medium ${isBest ? 'text-yellow-300' : isEmpty ? 'text-slate-600' : 'text-slate-400'}`}>
-                                        {item.label}
-                                    </span>
-                                    <span className={`text-[8px] leading-tight ${isEmpty ? 'text-slate-700' : 'text-slate-500'}`}>
-                                        {item.dateLabel}
-                                    </span>
-                                </div>
-                            )
-                        })}
+                        {/* Bars row: flex-1 per bar, spread across full width */}
+                        <div className="flex-1 flex items-end w-full" style={{ minHeight: '120px', gap: '2px' }}>
+                            {chartData.map((item, globalIdx) => {
+                                const heightPercent = maxPoints > 0 ? (item.points / maxPoints) * 100 : 0
+                                const barHeight = item.points === 0 ? '3px' : `${Math.max(heightPercent * 0.85, 6)}%`
+                                const colorSet = BAR_GRADIENTS[globalIdx % BAR_GRADIENTS.length]
+                                const isBest = bestDay && item === bestDay && item.points > 0
+                                const isEmpty = item.points === 0
+
+                                return (
+                                    <div key={item.dayKey} className="flex-1 flex flex-col items-center justify-end group min-w-0 h-full">
+                                        {/* Points value */}
+                                        <div className={`text-[10px] font-bold mb-0.5 whitespace-nowrap ${isEmpty ? 'text-slate-700' :
+                                            isBest ? 'text-yellow-300' : 'text-white/80'
+                                            }`}>
+                                            {isBest && <Sparkles className="w-2.5 h-2.5 inline mr-0.5 text-yellow-400" />}
+                                            {isEmpty ? '—' : item.points % 1 === 0 ? item.points : item.points.toFixed(1)}
+                                        </div>
+                                        {/* Bar */}
+                                        <div
+                                            className={`rounded-t-lg group-hover:brightness-110 transition-all duration-200 ${isEmpty ? 'bg-slate-700/20 border border-dashed border-slate-600/20' : ''}`}
+                                            style={{
+                                                width: `${barInnerMax}px`,
+                                                height: barHeight,
+                                                background: isEmpty ? undefined : colorSet.gradient,
+                                                boxShadow: isEmpty ? undefined : `0 2px 12px ${colorSet.glow}`,
+                                            }}
+                                        />
+                                    </div>
+                                )
+                            })}
+                        </div>
+
+                        {/* Labels row */}
+                        <div className="flex w-full mt-1" style={{ gap: '2px' }}>
+                            {chartData.map((item) => {
+                                const isBest = bestDay && item === bestDay && item.points > 0
+                                const isEmpty = item.points === 0
+                                return (
+                                    <div key={item.dayKey} className="flex-1 flex flex-col items-center min-w-0">
+                                        <span className={`text-[10px] font-medium ${isBest ? 'text-yellow-300' : isEmpty ? 'text-slate-600' : 'text-slate-400'}`}>
+                                            {item.label}
+                                        </span>
+                                        <span className={`text-[8px] leading-tight ${isEmpty ? 'text-slate-700' : 'text-slate-500'}`}>
+                                            {item.dateLabel}
+                                        </span>
+                                    </div>
+                                )
+                            })}
+                        </div>
                     </div>
 
                     {/* Best day */}
