@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { startOfWeek, format, addDays, subMonths, subDays, getWeek } from 'date-fns'
+import { startOfWeek, format, addDays, subDays, getWeek } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
 import { LogOut } from 'lucide-react'
 import DashboardLayout from '@/components/DashboardLayout'
@@ -10,49 +10,14 @@ import {
     FilterBar,
     KPICards,
     VideoTypeMixChart,
-    StatusDonut,
     Leaderboard,
     TaskTable,
     DueDateStats,
     DailyPointsChart,
     CTSTChart,
 } from '@/components/dashboard'
-
-interface Task {
-    id: string
-    asana_id: string
-    name: string
-    assignee_name: string | null
-    assignee_email: string | null
-    video_type: string | null
-    video_count: number
-    points: number
-    due_date: string | null
-    completed_at: string | null
-    status: 'done' | 'not_done'
-    tags: string[]
-    ctst: string | null
-}
-
-interface Target {
-    user_gid: string
-    week_start_date: string
-    target_points: number
-}
-
-const POINT_CONFIG: Record<string, number> = {
-    S1: 3, S2A: 2, S2B: 2.5, S3A: 2,
-    S3B: 5, S4: 5, S5: 6, S6: 7,
-    S7: 10, S8: 48, S9A: 2.5, S9B: 4, S9C: 7, S10A: 1,
-}
-
-interface DayOffEntry {
-    member_name: string | null
-    date: string
-    is_half_day: boolean
-}
-
-const WORKING_DAYS_PER_WEEK = 4
+import type { Task, Target, DayOffEntry } from '@/lib/types'
+import { CREATIVE_POINT_CONFIG, WORKING_DAYS_PER_WEEK, FALLBACK_TARGET, TOTAL_WEEKS } from '@/lib/constants'
 
 export default function DashboardPage() {
     const router = useRouter()
@@ -121,11 +86,14 @@ export default function DashboardPage() {
             setLoading(true)
         }
         try {
-            const { data: tasks } = await supabase
+            // Select only needed columns — exclude raw_data to reduce payload ~10-20x
+            const { data: tasks, error: tasksError } = await supabase
                 .from('tasks')
-                .select('*')
+                .select('id, asana_id, name, assignee_name, assignee_email, video_type, video_count, points, due_date, completed_at, status, tags, ctst, project_type, updated_at')
                 .eq('project_type', 'creative')
                 .order('updated_at', { ascending: false })
+
+            if (tasksError) console.error('Tasks fetch error:', tasksError)
 
             if (tasks) {
                 setAllTasks(tasks)
@@ -133,15 +101,9 @@ export default function DashboardPage() {
                 setAssignees(uniqueAssignees.sort())
             }
 
-            const weekStartStr = format(weekStart, 'yyyy-MM-dd')
-            // Get targets for the selected date range
-            // Expand start by 7 days to catch weeks that overlap (week_start_date is Monday, may be before dateRange.start)
-            const expandedStartStr = format(subDays(dateRange.start, 7), 'yyyy-MM-dd')
-            const endDateStr = format(dateRange.end, 'yyyy-MM-dd')
-
             const { data: targetsData } = await supabase
                 .from('targets')
-                .select('*')
+                .select('user_gid, week_start_date, target_points')
                 .eq('project_type', 'creative')
 
             if (targetsData) {
@@ -169,7 +131,7 @@ export default function DashboardPage() {
 
             const { data: syncLogs } = await supabase
                 .from('sync_logs')
-                .select('*')
+                .select('started_at')
                 .order('started_at', { ascending: false })
                 .limit(1)
 
@@ -182,7 +144,7 @@ export default function DashboardPage() {
             setLoading(false)
             initialLoadDone.current = true
         }
-    }, [supabase, weekStart, dateRange]) // Added dateRange dependency
+    }, [supabase, weekStart, dateRange])
 
     useEffect(() => {
         fetchData()
@@ -191,39 +153,18 @@ export default function DashboardPage() {
     useEffect(() => {
         const autoSync = async () => {
             if (!loading && allTasks.length === 0 && !syncing) {
-                console.log('No tasks found, auto-syncing from Asana...')
                 await handleSync()
             }
         }
         autoSync()
     }, [loading, allTasks.length])
 
-    // Auto-sync every 2 minutes
-    const syncingRef = useRef(syncing)
-    syncingRef.current = syncing
-    useEffect(() => {
-        const AUTO_SYNC_INTERVAL = 2 * 60 * 1000 // 2 minutes
-        const intervalId = setInterval(async () => {
-            if (!syncingRef.current) {
-                console.log('[Auto-Sync] Syncing all projects from Asana...', new Date().toLocaleTimeString())
-                try {
-                    const response = await fetch('/api/asana/sync?project=all', {
-                        method: 'POST',
-                        cache: 'no-store',
-                    })
-                    if (response.ok) {
-                        console.log('[Auto-Sync] Sync complete, refreshing data...')
-                        await fetchData(true)
-                    }
-                } catch (error) {
-                    console.error('[Auto-Sync] Error:', error)
-                }
-            }
-        }, AUTO_SYNC_INTERVAL)
-        return () => clearInterval(intervalId)
-    }, [fetchData])
+    // Auto-sync removed — Vercel Cron handles periodic sync.
+    // Realtime subscription below handles live updates.
 
-    // Supabase Realtime: auto-refresh dashboard when tasks table changes
+    // Supabase Realtime: auto-refresh dashboard when tasks/targets change
+    // Skip refresh if we just triggered a sync (to prevent double-fetch)
+    const justSyncedRef = useRef(false)
     useEffect(() => {
         let timeoutId: NodeJS.Timeout | null = null
 
@@ -231,28 +172,21 @@ export default function DashboardPage() {
             .channel('dashboard-tasks-realtime')
             .on('postgres_changes',
                 { event: '*', schema: 'public', table: 'tasks' },
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (payload: any) => {
-                    console.log('[Realtime] Tasks table changed:', payload.eventType)
-                    // Debounce: wait 1.5s to batch multiple rapid changes
+                () => {
+                    // Skip if we just synced — handleSync already calls fetchData
+                    if (justSyncedRef.current) return
                     if (timeoutId) clearTimeout(timeoutId)
-                    timeoutId = setTimeout(() => {
-                        console.log('[Realtime] Refreshing dashboard data...')
-                        fetchData(true)
-                    }, 1500)
+                    timeoutId = setTimeout(() => fetchData(true), 1500)
                 }
             )
             .on('postgres_changes',
                 { event: '*', schema: 'public', table: 'targets' },
                 () => {
-                    console.log('[Realtime] Targets table changed')
                     if (timeoutId) clearTimeout(timeoutId)
                     timeoutId = setTimeout(() => fetchData(true), 1500)
                 }
             )
-            .subscribe((status) => {
-                console.log('[Realtime] Subscription status:', status)
-            })
+            .subscribe()
 
         return () => {
             if (timeoutId) clearTimeout(timeoutId)
@@ -262,15 +196,16 @@ export default function DashboardPage() {
 
     const handleSync = async () => {
         setSyncing(true)
+        justSyncedRef.current = true
         try {
             const response = await fetch('/api/asana/sync?project=creative', { method: 'POST', cache: 'no-store' })
             if (response.ok) {
                 await fetchData()
             }
-        } catch (error) {
-            console.error('Sync error:', error)
         } finally {
             setSyncing(false)
+            // Allow Realtime to work again after a short delay
+            setTimeout(() => { justSyncedRef.current = false }, 5000)
         }
     }
 
@@ -323,6 +258,8 @@ export default function DashboardPage() {
     const doneTasks = displayTasks.filter(t => t.status === 'done')
     const notDoneTasks = displayTasks.filter(t => t.status === 'not_done')
 
+
+
     const totalPoints = doneTasks.reduce((sum, t) => sum + (t.points || 0), 0)
     const notDonePoints = notDoneTasks.reduce((sum, t) => sum + (t.points || 0), 0)
     const totalVideos = doneTasks.reduce((sum, t) => sum + (t.video_count || 0), 0)
@@ -331,7 +268,7 @@ export default function DashboardPage() {
 
     // Calculate target for selected date range
     // Read target from the targets table per member per week, fallback to 160 if not set
-    const FALLBACK_TARGET = 160
+    // FALLBACK_TARGET imported from constants
 
     // Get distinct calendar week start dates (Monday) in the date range
     const daysDiff = Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24)) + 1
@@ -438,7 +375,7 @@ export default function DashboardPage() {
         const adjustedWeekTarget = Math.max(0, DEFAULT_TARGET_PER_MEMBER_PER_WEEK - weekDeduction)
         return weekPoints >= adjustedWeekTarget
     }).length
-    console.log('Points by week:', pointsByWeek, 'Target per week:', teamTargetPoints, 'Weeks achieved:', weeksAchieved)
+
 
     // Get all unique assignees from ALL tasks (not filtered) for the leaderboard
     const allAssigneeNames = [...new Set(allTasks.map(t => t.assignee_name).filter(Boolean))] as string[]
@@ -599,7 +536,7 @@ export default function DashboardPage() {
                         onAssigneesChange={setSelectedAssignees}
                         status={status}
                         onStatusChange={setStatus}
-                        videoTypes={Object.keys(POINT_CONFIG)}
+                        videoTypes={Object.keys(CREATIVE_POINT_CONFIG)}
                         selectedVideoTypes={selectedVideoTypes}
                         onVideoTypesChange={setSelectedVideoTypes}
                         onSync={handleSync}
@@ -625,7 +562,7 @@ export default function DashboardPage() {
                         teamTargetPoints={teamTargetPoints}
                         teamAchievedPercent={teamAchievedPercent}
                         weeksAchieved={weeksAchieved}
-                        totalWeeks={24}
+                        totalWeeks={TOTAL_WEEKS}
                     />
 
                     {/* Row 2: Charts — Points chart bigger, Video chart smaller */}

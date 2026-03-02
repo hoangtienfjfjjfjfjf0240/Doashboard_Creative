@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Save, Target, ChevronDown, CalendarOff, Filter } from 'lucide-react'
 import { format, startOfWeek, addWeeks, getWeek, getMonth } from 'date-fns'
 import DashboardLayout from '@/components/DashboardLayout'
+import { DESIGN_POINT_CONFIG, WORKING_DAYS_PER_WEEK } from '@/lib/constants'
 
 interface AssigneeTarget {
     assignee_name: string
@@ -18,19 +19,6 @@ interface DayOffRecord {
     member_name: string | null
     date: string
     is_half_day: boolean
-}
-
-const WORKING_DAYS_PER_WEEK = 4
-
-// Graphic Design point config — keys match Asana "Asset" enum values
-const DESIGN_POINT_CONFIG: Record<string, number> = {
-    'Research Doc': 12,           // S1
-    'ScreenShot': 24,             // S2
-    'Icon': 2,                    // S3
-    'Cover, Promotional Content': 12,  // S4
-    'Localize Screenshot': 6,     // S5
-    'Deep Localize': 24,          // S6
-    'Deep Localization': 24,      // S6 alt
 }
 
 const MONTHS_2026 = [
@@ -148,12 +136,12 @@ export default function GraphicSettingsPage() {
                 // Fetch graphic tasks
                 const { data: tasks } = await supabase
                     .from('tasks')
-                    .select('*')
+                    .select('id, assignee_name, assignee_email, video_type, video_count, points, due_date, completed_at, status, project_type')
                     .eq('project_type', 'graphic')
                 // Fetch existing graphic targets
                 const { data: existingTargets } = await supabase
                     .from('targets')
-                    .select('*')
+                    .select('id, user_gid, week_start_date, target_points, project_type')
                     .eq('project_type', 'graphic')
 
                 // Fetch day offs

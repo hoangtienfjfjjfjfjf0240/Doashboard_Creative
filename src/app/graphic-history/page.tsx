@@ -48,7 +48,7 @@ export default function GraphicHistoryPage() {
 
             const { data, error } = await supabase
                 .from('due_date_changes')
-                .select('*')
+                .select('id, task_id, task_name, assignee_name, old_due_date, new_due_date, changed_by, changed_at, reason')
                 .eq('project_type', 'graphic')
                 .order('changed_at', { ascending: false })
                 .limit(200)

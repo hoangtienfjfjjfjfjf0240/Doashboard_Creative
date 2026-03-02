@@ -9,17 +9,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     LineChart, Line, ResponsiveContainer, Cell
 } from 'recharts'
-
-// Point configuration
-const POINT_CONFIG: Record<string, number> = {
-    S1: 3, S2A: 2, S2B: 2.5, S3A: 2,
-    S3B: 5, S4: 5, S5: 6, S6: 7,
-    S7: 10, S8: 48, S9A: 2.5, S9B: 4, S9C: 7, S10A: 1,
-}
-
-// EKS Target (6 months)
-const EKS_TARGET = 4200
-const WEEKLY_TARGET_DEFAULT = 160
+import { CREATIVE_POINT_CONFIG, EKS_TARGET, FALLBACK_TARGET } from '@/lib/constants'
 
 interface Task {
     id: string
@@ -96,12 +86,12 @@ export default function ReportsPage() {
 
                 const { data: taskData } = await supabase
                     .from('tasks')
-                    .select('*')
+                    .select('id, name, assignee_name, assignee_email, video_type, video_count, points, due_date, completed_at, status, tags, ctst, project_type')
                     .eq('status', 'done')
 
                 if (taskData) setTasks(taskData)
 
-                const { data: targetData } = await supabase.from('targets').select('*')
+                const { data: targetData } = await supabase.from('targets').select('id, user_gid, week_start_date, target_points, project_type')
 
                 if (targetData) {
                     const targetsMap: Record<string, Record<number, number>> = {}
@@ -158,7 +148,7 @@ export default function ReportsPage() {
             let hitsCount = 0
             let totalTargetWeeks = 0
             Object.entries(weeklyPoints).forEach(([week, points]) => {
-                const target = memberTargets[parseInt(week)] || WEEKLY_TARGET_DEFAULT
+                const target = memberTargets[parseInt(week)] || FALLBACK_TARGET
                 totalTargetWeeks++
                 if (points >= target) hitsCount++
             })
@@ -331,7 +321,7 @@ export default function ReportsPage() {
                                                     {member.weeklyData.map((entry, index) => (
                                                         <Cell
                                                             key={`cell-${index}`}
-                                                            fill={entry.points >= WEEKLY_TARGET_DEFAULT
+                                                            fill={entry.points >= FALLBACK_TARGET
                                                                 ? '#10b981'
                                                                 : COLORS[memberIndex % COLORS.length]
                                                             }
@@ -343,10 +333,10 @@ export default function ReportsPage() {
                                     </div>
                                     <div className="mt-3 flex items-center justify-between text-sm border-t border-slate-600/50 pt-3">
                                         <span className="text-slate-400">
-                                            🎯 Mục tiêu: {WEEKLY_TARGET_DEFAULT} điểm
+                                            🎯 Mục tiêu: {FALLBACK_TARGET} điểm
                                         </span>
                                         <span className="text-green-400 font-medium">
-                                            ✓ Đạt {member.weeklyData.filter(w => w.points >= WEEKLY_TARGET_DEFAULT).length} tuần
+                                            ✓ Đạt {member.weeklyData.filter(w => w.points >= FALLBACK_TARGET).length} tuần
                                         </span>
                                     </div>
                                 </div>
@@ -485,7 +475,7 @@ export default function ReportsPage() {
                                     ))}
                                     <Line
                                         type="monotone"
-                                        dataKey={() => WEEKLY_TARGET_DEFAULT}
+                                        dataKey={() => FALLBACK_TARGET}
                                         stroke="#ef4444"
                                         strokeDasharray="5 5"
                                         strokeWidth={2}
@@ -577,10 +567,10 @@ export default function ReportsPage() {
                     <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6">
                         <h2 className="text-lg font-bold text-white mb-4">Bảng Quy Đổi Điểm</h2>
                         <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-3">
-                            {Object.entries(POINT_CONFIG).map(([type, points]) => (
+                            {Object.entries(CREATIVE_POINT_CONFIG).map(([type, points]) => (
                                 <div key={type} className="bg-slate-700/30 rounded-xl p-3 text-center">
                                     <span className="text-base font-bold text-purple-400">{type}</span>
-                                    <p className="text-xl font-bold text-white">{points}</p>
+                                    <p className="text-xl font-bold text-white">{points as number}</p>
                                     <p className="text-xs text-slate-500">điểm</p>
                                 </div>
                             ))}

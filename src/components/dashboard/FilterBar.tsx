@@ -337,14 +337,14 @@ export default function FilterBar({
 
     // Apply selected weeks
     const applySelectedWeeks = () => {
-        console.log('applySelectedWeeks called, selectedWeeks:', selectedWeeks)
+
         if (selectedWeeks.size === 0) return
 
         let minStart: Date | null = null
         let maxEnd: Date | null = null
 
         selectedWeeks.forEach(key => {
-            console.log('Processing key:', key)
+
             const [monthIdx, , startDay] = key.split('-').map(Number)
             const monthData = TIMELINE_2026.find(m => m.monthIndex === monthIdx)
             if (monthData) {
@@ -352,7 +352,7 @@ export default function FilterBar({
                 if (weekData) {
                     const start = new Date(monthData.year, monthData.monthIndex, weekData.startDay)
                     const end = new Date(monthData.year, monthData.monthIndex, weekData.endDay)
-                    console.log('Week:', weekData.week, 'Start:', start, 'End:', end)
+
 
                     if (!minStart || start < minStart) minStart = start
                     if (!maxEnd || end > maxEnd) maxEnd = end
@@ -360,10 +360,10 @@ export default function FilterBar({
             }
         })
 
-        console.log('Final range:', minStart, maxEnd)
+
         if (minStart && maxEnd) {
             const newRange = { start: minStart, end: endOfDay(maxEnd) }
-            console.log('Setting appliedRange:', newRange)
+
             onPresetChange('custom')
             setAppliedRange(newRange)
             if (onDateRangeChange) {
@@ -376,19 +376,19 @@ export default function FilterBar({
     }
 
     const handlePresetChange = (preset: DatePreset) => {
-        console.log('handlePresetChange called with:', preset)
+
         if (preset === 'custom') {
             setShowCustomDatePicker(true)
             setShowDateDropdown(false)
             return
         }
 
-        console.log('Setting selectedPreset to:', preset)
+
         onPresetChange(preset)
         onWeeksChange(new Set())
         setAppliedRange(null)
         const range = getDateRangeFromPreset(preset)
-        console.log('Range from preset:', range)
+
 
         if (onDateRangeChange) {
             onDateRangeChange(range)

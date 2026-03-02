@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { format, parseISO } from 'date-fns'
-import { ChevronDown, ChevronUp, ChevronRight, AlertCircle, CheckCircle, ExternalLink, MessageCircle, Loader2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, ChevronRight, AlertCircle, CheckCircle, ExternalLink, MessageCircle, Loader2, Copy, Check } from 'lucide-react'
 
 interface AsanaComment {
     id: string
@@ -128,6 +128,93 @@ export default function TaskTable({ doneTasks, notDoneTasks, showOverdueOnly = f
             S6: 'bg-red-500/20 text-red-300',
         }
         return colors[type || ''] || 'bg-slate-600/20 text-slate-400'
+    }
+
+    // Copy button with feedback
+    const CopyButton = ({ text }: { text: string }) => {
+        const [copied, setCopied] = useState(false)
+        const handleCopy = async (e: React.MouseEvent) => {
+            e.stopPropagation()
+            try {
+                await navigator.clipboard.writeText(text)
+                setCopied(true)
+                setTimeout(() => setCopied(false), 2000)
+            } catch {
+                // Fallback for older browsers
+                const ta = document.createElement('textarea')
+                ta.value = text
+                document.body.appendChild(ta)
+                ta.select()
+                document.execCommand('copy')
+                document.body.removeChild(ta)
+                setCopied(true)
+                setTimeout(() => setCopied(false), 2000)
+            }
+        }
+        return (
+            <button
+                onClick={handleCopy}
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs transition-all ${copied
+                    ? 'bg-green-500/20 text-green-300'
+                    : 'bg-slate-600/50 hover:bg-slate-500/50 text-slate-400 hover:text-white'
+                    }`}
+                title={copied ? 'Đã copy!' : 'Copy'}
+            >
+                {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                {copied ? 'Đã copy' : 'Copy'}
+            </button>
+        )
+    }
+
+    // Parse description and render links with copy buttons
+    const DescriptionWithCopyableLinks = ({ text }: { text: string }) => {
+        if (!text) return <span className="text-slate-500">Không có mô tả</span>
+
+        // Split by lines and process each
+        const lines = text.split('\n')
+        return (
+            <div className="space-y-1">
+                {lines.map((line, i) => {
+                    const trimmed = line.trim()
+
+                    // Detect UNC path: \\server\path
+                    if (trimmed.startsWith('\\\\')) {
+                        return (
+                            <div key={i} className="flex items-center gap-2 group">
+                                <span className="text-sm text-slate-300 break-all font-mono">{line}</span>
+                                <CopyButton text={trimmed} />
+                            </div>
+                        )
+                    }
+
+                    // Detect URL: http:// or https://
+                    const urlMatch = trimmed.match(/(https?:\/\/[^\s]+)/)
+                    if (urlMatch) {
+                        const url = urlMatch[1]
+                        return (
+                            <div key={i} className="flex items-start gap-2 group">
+                                <a
+                                    href={url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sm text-blue-400 hover:text-blue-300 underline break-all"
+                                >
+                                    {line}
+                                </a>
+                                <CopyButton text={url} />
+                            </div>
+                        )
+                    }
+
+                    // Regular text line
+                    return (
+                        <div key={i} className="text-sm text-slate-300">
+                            {line || '\u00A0'}
+                        </div>
+                    )
+                })}
+            </div>
+        )
     }
 
     const getAsanaUrl = (asanaId?: string) => {
@@ -303,9 +390,7 @@ export default function TaskTable({ doneTasks, notDoneTasks, showOverdueOnly = f
                                                     <div className="flex gap-4">
                                                         <div className="flex-1">
                                                             <h4 className="text-xs font-semibold text-slate-400 uppercase mb-2">Mô tả</h4>
-                                                            <p className="text-sm text-slate-300 whitespace-pre-wrap">
-                                                                {task.description || 'Không có mô tả'}
-                                                            </p>
+                                                            <DescriptionWithCopyableLinks text={task.description || ''} />
                                                         </div>
                                                         {asanaUrl && (
                                                             <div className="shrink-0">

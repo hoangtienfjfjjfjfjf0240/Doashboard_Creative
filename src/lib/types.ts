@@ -1,20 +1,54 @@
+// ──────────────────────────────────────────────────
+// Shared types — single source of truth
+// ──────────────────────────────────────────────────
+
 export interface Task {
     id: string
-    asana_gid: string
+    asana_id: string
     name: string
-    assignee_gid: string | null
+    description?: string | null
     assignee_name: string | null
+    assignee_email: string | null
     status: 'done' | 'not_done'
     completed_at: string | null
     due_date: string | null
     video_type: string | null
-    quantity: number
+    video_count: number
+    points: number
+    ctst: string | null
     tags: string[]
-    project_gid: string | null
-    created_at: string
-    updated_at: string
-    // Computed
-    points?: number
+    project_gid?: string | null
+    project_type?: 'creative' | 'graphic'
+    created_at?: string
+    updated_at?: string
+    // raw_data intentionally excluded — only used server-side
+}
+
+export interface Target {
+    id?: string
+    user_gid: string
+    week_start_date: string
+    target_points: number
+    project_type?: 'creative' | 'graphic'
+}
+
+export interface DayOffEntry {
+    member_name: string | null
+    date: string
+    is_half_day: boolean
+    reason?: string | null
+}
+
+export interface DueDateChange {
+    task_id: string
+    task_name?: string | null
+    assignee_name?: string | null
+    old_due_date: string | null
+    new_due_date: string | null
+    changed_at: string
+    changed_by?: string
+    reason?: string | null
+    project_type?: string
 }
 
 export interface Profile {
@@ -22,15 +56,12 @@ export interface Profile {
     email: string
     full_name: string | null
     avatar_url: string | null
-    role: 'admin' | 'lead' | 'member'
+    role: 'admin' | 'lead' | 'manager' | 'member' | 'none'
+    asana_email?: string | null
+    asana_name?: string | null
+    role_creative?: string
+    role_graphic?: string
     created_at: string
-}
-
-export interface Target {
-    id: string
-    user_gid: string
-    week_start_date: string
-    target_points: number
 }
 
 export interface SyncLog {
@@ -43,44 +74,10 @@ export interface SyncLog {
     error_message: string | null
 }
 
-export interface PointConfig {
-    video_type: string
-    points: number
-}
-
-export interface DashboardFilters {
-    weekStart: Date
-    assignees: string[]
-    status: 'all' | 'done' | 'not_done'
-    videoTypes: string[]
-}
-
-export interface AssigneeStats {
-    gid: string
-    name: string
-    totalPoints: number
-    totalVideos: number
-    doneTasks: number
-    notDoneTasks: number
-    targetPoints: number
-    achievedPercent: number
-    videoTypeMix: Record<string, number>
-}
-
-export interface WeeklyStats {
-    totalPoints: number
-    totalVideos: number
-    doneTasks: number
-    notDoneTasks: number
-    activeAssignees: number
-    avgPointsPerVideo: number
-    teamTargetPoints: number
-    teamAchievedPercent: number
-}
-
-export interface DailyActivity {
-    date: string
-    dayName: string
-    points: number
-    tasks: number
+export interface UserInfo {
+    email: string
+    role: string
+    fullName: string
+    asanaEmail: string
+    asanaName: string
 }

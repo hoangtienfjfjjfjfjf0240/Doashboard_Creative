@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { CREATIVE_POINT_CONFIG, DESIGN_POINT_CONFIG, ASANA_API_BASE } from '@/lib/constants'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,27 +9,6 @@ const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
-
-const ASANA_API_BASE = 'https://app.asana.com/api/1.0'
-
-// Video Creative point config
-const CREATIVE_POINT_CONFIG: Record<string, number> = {
-    S1: 3, S2A: 2, S2B: 2.5, S3A: 2,
-    S3B: 5, S4: 5, S5: 6, S6: 7,
-    S7: 10, S8: 48, S9A: 2.5, S9B: 4, S9C: 7, S10A: 1,
-}
-
-// Graphic Design point config — keys must match Asana "Asset" enum values exactly
-const DESIGN_POINT_CONFIG: Record<string, number> = {
-    'Research Doc': 12,           // S1
-    'ScreenShot': 24,             // S2
-    'Icon': 2,                    // S3
-    'Cover, Promotional Content': 12,  // S4
-    'Localize Screenshot': 6,     // S5
-    'Localize': 6,                // S5 alternate name
-    'Deep Localize': 24,          // S6 (Deep Localization)
-    'Deep Localization': 24,      // S6 alternate name
-}
 
 interface AsanaTask {
     gid: string

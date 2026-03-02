@@ -6,38 +6,19 @@ import { createClient } from '@/lib/supabase/client'
 import { Save, Target, ChevronDown, CalendarOff, Filter } from 'lucide-react'
 import { format, startOfWeek, addWeeks, getWeek, getMonth } from 'date-fns'
 import DashboardLayout from '@/components/DashboardLayout'
+import { CREATIVE_POINT_CONFIG, WORKING_DAYS_PER_WEEK } from '@/lib/constants'
 
 interface AssigneeTarget {
     assignee_name: string
     targets: Record<number, number>
-    actualPoints: Record<number, number> // Points from Asana tasks
-    dayOffDeductions: Record<number, number> // Day off deductions per week
+    actualPoints: Record<number, number>
+    dayOffDeductions: Record<number, number>
 }
 
 interface DayOffRecord {
     member_name: string | null
     date: string
     is_half_day: boolean
-}
-
-const WORKING_DAYS_PER_WEEK = 4
-
-// Point configuration for video types - matching user's table
-const POINT_CONFIG: Record<string, number> = {
-    S1: 3,      // Bumper Ads (6s)
-    S2A: 2,     // Gen Hook Prompt to video
-    S2B: 2.5,   // Gen Hook Image to video
-    S3A: 2,     // Json_Button
-    S3B: 5,     // Json_Tutorial
-    S4: 3,      // UGC
-    S5: 6,      // Motion shot ads
-    S6: 7,      // Source + Roto/Tracking
-    S7: 10,     // Quay dựng + Roto/Tracking
-    S8: 48,     // Video HomePage
-    S9A: 2.5,   // Drama: Duration < 10 min
-    S9B: 4,     // Drama: Duration 11 - 20 min
-    S9C: 7,     // Drama: Duration > 21 min
-    S10A: 1,    // Translate
 }
 
 // Months in 2026
@@ -61,7 +42,7 @@ function getWeeksOf2026() {
     // Start from Feb 2, 2026 (first Monday of February)
     const feb2 = new Date(2026, 1, 2) // February 2, 2026 (Monday)
     const startActualWeek = getWeek(feb2, { weekStartsOn: 1 })
-    console.log('First week of Feb 2026:', startActualWeek, 'Feb 2 is:', feb2.toDateString())
+
 
     const numWeeks = 24
     for (let i = 0; i < numWeeks; i++) {
@@ -174,21 +155,21 @@ export default function SettingsPage() {
             }
 
             memberNames = [...new Set(memberNames)].sort()
-            console.log('Member names from profiles:', memberNames)
+
             setAssignees(memberNames)
 
             // Fetch all tasks
             const { data: tasks, error: tasksError } = await supabase
                 .from('tasks')
-                .select('*')
+                .select('id, assignee_name, assignee_email, video_type, video_count, points, due_date, completed_at, status, project_type')
                 .eq('project_type', 'creative')
 
-            console.log('Tasks query result:', { count: tasks?.length, error: tasksError })
+
 
             // Fetch existing targets
             const { data: existingTargets } = await supabase
                 .from('targets')
-                .select('*')
+                .select('id, user_gid, week_start_date, target_points, project_type')
                 .eq('project_type', 'creative')
 
             // Fetch day offs for all members
@@ -282,7 +263,7 @@ export default function SettingsPage() {
                 actualPoints: actualPointsMap[name] || {},
                 dayOffDeductions: dayOffDeductionsMap[name] || {}
             }))
-            console.log('Setting targets array:', targetsArray)
+
             setTargets(targetsArray)
         } catch (error) {
             console.error('Error fetching data:', error)
@@ -309,7 +290,7 @@ export default function SettingsPage() {
                 { event: '*', schema: 'public', table: 'tasks' },
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 (payload: any) => {
-                    console.log('Tasks table changed:', payload)
+
                     // Debounce: wait 2 seconds before refetching
                     if (timeoutId) clearTimeout(timeoutId)
                     timeoutId = setTimeout(() => {
