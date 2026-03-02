@@ -359,9 +359,13 @@ export default function GraphicDashboardPage() {
     const allAssigneeNames = [...new Set(allTasks.map(t => t.assignee_name).filter(Boolean))] as string[]
 
     const allDoneTasks = allTasks.filter(t => t.status === 'done')
+    const currentWeekNum = getWeek(new Date(), { weekStartsOn: 1 })
     const leaderboardData = allAssigneeNames.map(name => {
         const memberAllDone = allDoneTasks.filter(t => t.assignee_name === name)
         const totalPoints = memberAllDone.reduce((sum, t) => sum + (t.points || 0), 0)
+
+        // Use this member's own target (not filter-dependent)
+        const memberOwnTarget = getTargetForMember(name)
 
         const memberPointsByWeek: Record<number, number> = {}
         memberAllDone.forEach(task => {
@@ -381,27 +385,29 @@ export default function GraphicDashboardPage() {
                 const date = new Date(d.date)
                 if (date.getFullYear() === 2026 && date.getMonth() >= 1) {
                     const weekNum = getWeek(date, { weekStartsOn: 1 })
-                    const ptsPerDay = DEFAULT_TARGET_PER_MEMBER_PER_WEEK / WORKING_DAYS_PER_WEEK
+                    const ptsPerDay = memberOwnTarget / WORKING_DAYS_PER_WEEK
                     const deduction = d.is_half_day ? ptsPerDay / 2 : ptsPerDay
                     memberDayOffsByWeek[weekNum] = (memberDayOffsByWeek[weekNum] || 0) + deduction
                 }
             }
         })
 
+        // Only count weeks that have elapsed (up to current week)
         const memberWeeksAchieved = Object.entries(memberPointsByWeek)
             .filter(([weekNum]) => {
                 const wk = parseInt(weekNum)
+                if (wk > currentWeekNum) return false // skip future weeks
                 const deduction = memberDayOffsByWeek[wk] || 0
-                const adjustedTarget = Math.max(0, DEFAULT_TARGET_PER_MEMBER_PER_WEEK - deduction)
+                const adjustedTarget = Math.max(0, memberOwnTarget - deduction)
                 return (memberPointsByWeek[wk] || 0) >= adjustedTarget
             }).length
 
         return {
             name,
             points: totalPoints,
-            target: DEFAULT_TARGET_PER_MEMBER_PER_WEEK,
+            target: memberOwnTarget,
             weeksAchieved: memberWeeksAchieved,
-            totalWeeks: 24,
+            totalWeeks: TOTAL_WEEKS,
         }
     })
 

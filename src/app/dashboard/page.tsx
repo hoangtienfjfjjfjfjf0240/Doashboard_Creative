@@ -423,9 +423,13 @@ export default function DashboardPage() {
     // Leaderboard: Calculate from ALL tasks (not date-filtered) to show total weeks achieved
     // This way the leaderboard always shows the big picture for ALL members
     const allDoneTasks = allTasks.filter(t => t.status === 'done')
+    const currentWeekNum = getWeek(new Date(), { weekStartsOn: 1 })
     const leaderboardData = allAssigneeNames.map(name => {
         const memberAllDone = allDoneTasks.filter(t => t.assignee_name === name)
         const totalPoints = memberAllDone.reduce((sum, t) => sum + (t.points || 0), 0)
+
+        // Use this member's own target (not filter-dependent)
+        const memberOwnTarget = getTargetForMember(name)
 
         // Group by week using due_date
         const memberPointsByWeek: Record<number, number> = {}
@@ -433,7 +437,7 @@ export default function DashboardPage() {
             const dueDate = task.due_date
             if (dueDate) {
                 const d = new Date(dueDate)
-                // Only count 2026 weeks
+                // Only count 2026 weeks from February onwards
                 if (d.getFullYear() === 2026 && d.getMonth() >= 1) {
                     const weekNum = getWeek(d, { weekStartsOn: 1 })
                     memberPointsByWeek[weekNum] = (memberPointsByWeek[weekNum] || 0) + (task.points || 0)
@@ -448,28 +452,29 @@ export default function DashboardPage() {
                 const date = new Date(d.date)
                 if (date.getFullYear() === 2026 && date.getMonth() >= 1) {
                     const weekNum = getWeek(date, { weekStartsOn: 1 })
-                    const ptsPerDay = DEFAULT_TARGET_PER_MEMBER_PER_WEEK / WORKING_DAYS_PER_WEEK
+                    const ptsPerDay = memberOwnTarget / WORKING_DAYS_PER_WEEK
                     const deduction = d.is_half_day ? ptsPerDay / 2 : ptsPerDay
                     memberDayOffsByWeek[weekNum] = (memberDayOffsByWeek[weekNum] || 0) + deduction
                 }
             }
         })
 
-        // Check weeks achieved with adjusted targets
+        // Only count weeks that have elapsed (up to current week)
         const memberWeeksAchieved = Object.entries(memberPointsByWeek)
             .filter(([weekNum, pts]) => {
                 const wk = parseInt(weekNum)
+                if (wk > currentWeekNum) return false // skip future weeks
                 const deduction = memberDayOffsByWeek[wk] || 0
-                const adjustedTarget = Math.max(0, DEFAULT_TARGET_PER_MEMBER_PER_WEEK - deduction)
+                const adjustedTarget = Math.max(0, memberOwnTarget - deduction)
                 return pts >= adjustedTarget
             }).length
 
         return {
             name,
             points: totalPoints,
-            target: DEFAULT_TARGET_PER_MEMBER_PER_WEEK,
+            target: memberOwnTarget,
             weeksAchieved: memberWeeksAchieved,
-            totalWeeks: 24,
+            totalWeeks: TOTAL_WEEKS,
         }
     })
 
