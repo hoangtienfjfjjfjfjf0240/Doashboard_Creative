@@ -432,7 +432,7 @@ export default function TaskTable({ doneTasks, notDoneTasks, showOverdueOnly = f
                                                                                 {format(parseISO(comment.created_at), 'dd/MM/yyyy HH:mm')}
                                                                             </span>
                                                                         </div>
-                                                                        <p className="text-sm text-slate-300 whitespace-pre-wrap">{comment.text}</p>
+                                                                        <DescriptionWithCopyableLinks text={comment.text} />
                                                                     </div>
                                                                 ))}
                                                             </div>
