@@ -165,6 +165,9 @@ export default function DashboardPage() {
     // Supabase Realtime: auto-refresh dashboard when tasks/targets change
     // Skip refresh if we just triggered a sync (to prevent double-fetch)
     const justSyncedRef = useRef(false)
+    const fetchDataRef = useRef(fetchData)
+    fetchDataRef.current = fetchData
+
     useEffect(() => {
         let timeoutId: NodeJS.Timeout | null = null
 
@@ -176,14 +179,15 @@ export default function DashboardPage() {
                     // Skip if we just synced — handleSync already calls fetchData
                     if (justSyncedRef.current) return
                     if (timeoutId) clearTimeout(timeoutId)
-                    timeoutId = setTimeout(() => fetchData(true), 1500)
+                    // 5s debounce to batch multiple rapid changes (e.g. during sync)
+                    timeoutId = setTimeout(() => fetchDataRef.current(true), 5000)
                 }
             )
             .on('postgres_changes',
                 { event: '*', schema: 'public', table: 'targets' },
                 () => {
                     if (timeoutId) clearTimeout(timeoutId)
-                    timeoutId = setTimeout(() => fetchData(true), 1500)
+                    timeoutId = setTimeout(() => fetchDataRef.current(true), 5000)
                 }
             )
             .subscribe()
@@ -192,7 +196,7 @@ export default function DashboardPage() {
             if (timeoutId) clearTimeout(timeoutId)
             supabase.removeChannel(channel)
         }
-    }, [supabase, fetchData])
+    }, [supabase]) // stable dependency — no fetchData here
 
     const handleSync = async () => {
         setSyncing(true)
