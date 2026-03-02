@@ -51,14 +51,19 @@ export default function TaskTable({ doneTasks, notDoneTasks, showOverdueOnly = f
 
         setCommentsLoading(expandedTaskId)
         fetch(`/api/asana/comments?taskGid=${task.asana_id}`)
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error(`HTTP ${res.status}`)
+                return res.json()
+            })
             .then(data => {
                 if (data.comments) {
                     setComments(prev => ({ ...prev, [expandedTaskId]: data.comments }))
+                } else {
+                    setComments(prev => ({ ...prev, [expandedTaskId]: [] }))
                 }
             })
-            .catch(err => {
-                console.error('Failed to load comments:', err)
+            .catch(() => {
+                // Silently handle — show "no comments" instead of crashing
                 setComments(prev => ({ ...prev, [expandedTaskId]: [] }))
             })
             .finally(() => setCommentsLoading(null))
