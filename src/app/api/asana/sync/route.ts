@@ -102,11 +102,11 @@ async function syncProject(projectType: ProjectType): Promise<{ processed: numbe
     // ── Step 1: Fetch ALL existing tasks in ONE batch query ──
     const { data: existingTasksData } = await supabase
         .from('tasks')
-        .select('asana_id, due_date, name, assignee_name')
+        .select('asana_id, due_date, name, assignee_name, status')
         .eq('project_type', projectType)
 
     // Build a lookup map for O(1) access
-    const existingMap = new Map<string, { due_date: string | null; name: string; assignee_name: string | null }>()
+    const existingMap = new Map<string, { due_date: string | null; name: string; assignee_name: string | null; status: string }>()
     if (existingTasksData) {
         existingTasksData.forEach(t => existingMap.set(t.asana_id, t))
     }
@@ -219,17 +219,25 @@ async function syncProject(projectType: ProjectType): Promise<{ processed: numbe
         }
     }
 
-    // ── Step 5: Log stale tasks but DO NOT delete them ──
-    // The completed_since filter means Asana won't return old completed tasks.
-    // Deleting them here would cause data loss for historical records.
+    // ── Step 5: Smart stale cleanup ──
+    // Only delete 'not_done' tasks that are no longer in Asana (genuinely removed/moved).
+    // NEVER delete 'done' tasks — they are historical records that Asana's
+    // completed_since filter may exclude from the API response.
     const asanaGids = new Set(asanaTasks.map(t => t.gid))
     if (existingTasksData) {
-        const staleIds = existingTasksData
-            .filter(t => !asanaGids.has(t.asana_id))
+        const staleDoneIds = existingTasksData
+            .filter(t => !asanaGids.has(t.asana_id) && t.status === 'done')
+            .map(t => t.asana_id)
+        const staleNotDoneIds = existingTasksData
+            .filter(t => !asanaGids.has(t.asana_id) && t.status !== 'done')
             .map(t => t.asana_id)
 
-        if (staleIds.length > 0) {
-            console.log(`[Sync ${projectType}] Found ${staleIds.length} tasks in DB not returned by Asana (likely older completed tasks, NOT deleting)`)
+        if (staleDoneIds.length > 0) {
+            console.log(`[Sync ${projectType}] Preserving ${staleDoneIds.length} completed tasks not in Asana response (historical records)`)
+        }
+        if (staleNotDoneIds.length > 0) {
+            console.log(`[Sync ${projectType}] Removing ${staleNotDoneIds.length} incomplete tasks no longer in Asana`)
+            await supabase.from('tasks').delete().in('asana_id', staleNotDoneIds)
         }
     }
 
