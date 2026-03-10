@@ -87,7 +87,7 @@ export default function GraphicDashboardPage() {
             // Select only needed columns — exclude raw_data
             const { data: tasks, error: tasksError } = await supabase
                 .from('tasks')
-                .select('id, asana_id, name, assignee_name, assignee_email, video_type, video_count, points, due_date, completed_at, status, tags, ctst, project_type, updated_at')
+                .select('id, asana_id, name, description, assignee_name, assignee_email, video_type, video_count, points, due_date, completed_at, status, tags, ctst, project_type, updated_at')
                 .eq('project_type', 'graphic')
                 .order('updated_at', { ascending: false })
 
