@@ -178,15 +178,16 @@ export default function TaskTable({ doneTasks, notDoneTasks, showOverdueOnly = f
         // Split by lines and process each
         const lines = text.split('\n')
         return (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
                 {lines.map((line, i) => {
                     const trimmed = line.trim()
 
                     // Detect UNC path: \\server\path
                     if (trimmed.startsWith('\\\\')) {
                         return (
-                            <div key={i} className="flex items-center gap-2 group">
-                                <span className="text-sm text-slate-300 break-all font-mono">{line}</span>
+                            <div key={i} className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                                <span className="text-amber-400 text-base shrink-0">📁</span>
+                                <span className="text-sm text-amber-200 break-all font-mono flex-1 select-all">{trimmed}</span>
                                 <CopyButton text={trimmed} />
                             </div>
                         )
@@ -197,14 +198,15 @@ export default function TaskTable({ doneTasks, notDoneTasks, showOverdueOnly = f
                     if (urlMatch) {
                         const url = urlMatch[1]
                         return (
-                            <div key={i} className="flex items-start gap-2 group">
+                            <div key={i} className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-lg px-3 py-2">
+                                <span className="text-blue-400 text-base shrink-0">🔗</span>
                                 <a
                                     href={url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-sm text-blue-400 hover:text-blue-300 underline break-all"
+                                    className="text-sm text-blue-300 hover:text-blue-200 underline break-all flex-1"
                                 >
-                                    {line}
+                                    {trimmed}
                                 </a>
                                 <CopyButton text={url} />
                             </div>
@@ -212,9 +214,10 @@ export default function TaskTable({ doneTasks, notDoneTasks, showOverdueOnly = f
                     }
 
                     // Regular text line
+                    if (!trimmed) return null
                     return (
                         <div key={i} className="text-sm text-slate-300">
-                            {line || '\u00A0'}
+                            {line}
                         </div>
                     )
                 })}
@@ -395,7 +398,18 @@ export default function TaskTable({ doneTasks, notDoneTasks, showOverdueOnly = f
                                                     <div className="flex gap-4">
                                                         <div className="flex-1">
                                                             <h4 className="text-xs font-semibold text-slate-400 uppercase mb-2">Mô tả</h4>
-                                                            <DescriptionWithCopyableLinks text={task.description || ''} />
+                                                            {task.description ? (
+                                                                <DescriptionWithCopyableLinks text={task.description} />
+                                                            ) : comments[task.id]?.length ? (
+                                                                <DescriptionWithCopyableLinks text={comments[task.id][0].text} />
+                                                            ) : commentsLoading === task.id ? (
+                                                                <span className="text-slate-500 text-sm flex items-center gap-2">
+                                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                                    Đang tải...
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-slate-500">Không có mô tả</span>
+                                                            )}
                                                         </div>
                                                         {asanaUrl && (
                                                             <div className="shrink-0">
