@@ -61,10 +61,9 @@ async function fetchAsanaTasks(projectId: string): Promise<AsanaTask[]> {
         const url = new URL(`${ASANA_API_BASE}/projects/${projectId}/tasks`)
         url.searchParams.set('opt_fields', 'gid,name,notes,completed,completed_at,due_on,assignee,assignee.name,assignee.email,custom_fields,custom_fields.name,custom_fields.display_value,custom_fields.number_value,custom_fields.enum_value,tags,tags.name')
         url.searchParams.set('limit', '100')
-        // Include completed tasks from the last 180 days to avoid losing historical data
-        // Previously 30 days caused completed tasks older than 30 days to be deleted during stale cleanup
-        const lookbackDate = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString()
-        url.searchParams.set('completed_since', lookbackDate)
+        // Do NOT set completed_since — omitting it returns ALL tasks (complete + incomplete)
+        // Setting completed_since=now would only return incomplete tasks
+        // Setting completed_since=<date> would exclude tasks completed before that date
         if (offset) url.searchParams.set('offset', offset)
 
         const response = await fetch(url.toString(), {

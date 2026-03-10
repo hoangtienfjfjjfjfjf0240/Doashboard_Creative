@@ -1,6 +1,6 @@
 'use client'
 
-import { TrendingUp, TrendingDown, CheckCircle, XCircle, Trophy, ClipboardList, Minus } from 'lucide-react'
+import { TrendingUp, TrendingDown, CheckCircle, XCircle, Trophy, ClipboardList, Minus, Film } from 'lucide-react'
 
 interface KPICardsProps {
     totalPoints: number
@@ -32,6 +32,14 @@ export default function KPICards({
 
     const cards = [
         {
+            title: 'Tổng Videos',
+            value: totalVideos.toLocaleString(),
+            icon: Film,
+            bgColor: 'bg-blue-500/10',
+            textColor: 'text-blue-400',
+            glowColor: 'hover:shadow-blue-500/15',
+        },
+        {
             title: 'Total Tasks',
             value: totalTasks.toLocaleString(),
             icon: ClipboardList,
@@ -58,7 +66,7 @@ export default function KPICards({
     ]
 
     return (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6 stagger-children">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6 stagger-children">
             {/* Total Points Card - Enhanced */}
             <div className="glass-card p-4 hover:scale-[1.02] hover:shadow-lg hover:shadow-violet-500/15 transition-all duration-250 cursor-default group">
                 <div className="inline-flex p-2 rounded-xl bg-violet-500/10 mb-3 group-hover:scale-110 transition-transform duration-250">
