@@ -61,9 +61,10 @@ async function fetchAsanaTasks(projectId: string): Promise<AsanaTask[]> {
         const url = new URL(`${ASANA_API_BASE}/projects/${projectId}/tasks`)
         url.searchParams.set('opt_fields', 'gid,name,notes,completed,completed_at,due_on,assignee,assignee.name,assignee.email,custom_fields,custom_fields.name,custom_fields.display_value,custom_fields.number_value,custom_fields.enum_value,tags,tags.name')
         url.searchParams.set('limit', '100')
-        // Include completed tasks from the last 30 days so we can detect done/undone changes
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-        url.searchParams.set('completed_since', thirtyDaysAgo)
+        // Include completed tasks from the last 180 days to avoid losing historical data
+        // Previously 30 days caused completed tasks older than 30 days to be deleted during stale cleanup
+        const lookbackDate = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString()
+        url.searchParams.set('completed_since', lookbackDate)
         if (offset) url.searchParams.set('offset', offset)
 
         const response = await fetch(url.toString(), {
@@ -218,7 +219,9 @@ async function syncProject(projectType: ProjectType): Promise<{ processed: numbe
         }
     }
 
-    // ── Step 5: Clean up stale tasks (1 query) ──
+    // ── Step 5: Log stale tasks but DO NOT delete them ──
+    // The completed_since filter means Asana won't return old completed tasks.
+    // Deleting them here would cause data loss for historical records.
     const asanaGids = new Set(asanaTasks.map(t => t.gid))
     if (existingTasksData) {
         const staleIds = existingTasksData
@@ -226,7 +229,7 @@ async function syncProject(projectType: ProjectType): Promise<{ processed: numbe
             .map(t => t.asana_id)
 
         if (staleIds.length > 0) {
-            await supabase.from('tasks').delete().in('asana_id', staleIds)
+            console.log(`[Sync ${projectType}] Found ${staleIds.length} tasks in DB not returned by Asana (likely older completed tasks, NOT deleting)`)
         }
     }
 
