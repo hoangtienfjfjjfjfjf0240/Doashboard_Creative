@@ -22,6 +22,7 @@ const VIDEO_TYPE_COLORS: Record<string, { badge: string; bar: string; glow: stri
     S5: { badge: 'bg-orange-500', bar: 'linear-gradient(90deg, #f97316, #fb923c)', glow: 'rgba(249,115,22,0.3)' },
     S6: { badge: 'bg-red-500', bar: 'linear-gradient(90deg, #ef4444, #f87171)', glow: 'rgba(239,68,68,0.3)' },
     S7: { badge: 'bg-pink-500', bar: 'linear-gradient(90deg, #ec4899, #f472b6)', glow: 'rgba(236,72,153,0.3)' },
+    S7A: { badge: 'bg-rose-400', bar: 'linear-gradient(90deg, #fb7185, #fda4af)', glow: 'rgba(251,113,133,0.3)' },
     S8: { badge: 'bg-purple-500', bar: 'linear-gradient(90deg, #a855f7, #c084fc)', glow: 'rgba(168,85,247,0.3)' },
     S9A: { badge: 'bg-indigo-500', bar: 'linear-gradient(90deg, #6366f1, #818cf8)', glow: 'rgba(99,102,241,0.3)' },
     S9B: { badge: 'bg-violet-500', bar: 'linear-gradient(90deg, #8b5cf6, #a78bfa)', glow: 'rgba(139,92,246,0.3)' },

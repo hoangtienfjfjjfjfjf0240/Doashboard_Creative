@@ -13,6 +13,7 @@ export const CREATIVE_POINT_CONFIG: Record<string, number> = {
     S5: 6,      // Motion shot ads
     S6: 7,      // Source + Roto/Tracking
     S7: 10,     // Quay dựng + Roto/Tracking
+    S7A: 5,     // Quay dựng dạng A
     S8: 48,     // Video HomePage
     S9A: 2.5,   // Drama: Duration < 10 min
     S9B: 4,     // Drama: Duration 11 - 20 min

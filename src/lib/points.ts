@@ -23,6 +23,7 @@ export function getVideoTypeColor(videoType: string): string {
         S5: '#f97316',
         S6: '#ef4444',
         S7: '#dc2626',
+        S7A: '#fb7185',
         S8: '#a855f7',
         S9A: '#e879f9',
         S9B: '#c084fc',

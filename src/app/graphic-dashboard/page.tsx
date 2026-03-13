@@ -501,6 +501,7 @@ export default function GraphicDashboardPage() {
                         teamAchievedPercent={teamAchievedPercent}
                         weeksAchieved={weeksAchieved}
                         totalWeeks={TOTAL_WEEKS}
+                        unit="image"
                     />
 
                     {/* Row 2: Charts — Points chart bigger, Image chart smaller */}

@@ -1,6 +1,6 @@
 'use client'
 
-import { TrendingUp, TrendingDown, CheckCircle, XCircle, Trophy, ClipboardList, Minus, Film } from 'lucide-react'
+import { TrendingUp, TrendingDown, CheckCircle, XCircle, Trophy, ClipboardList, Minus, Film, Image } from 'lucide-react'
 
 interface KPICardsProps {
     totalPoints: number
@@ -14,6 +14,7 @@ interface KPICardsProps {
     teamAchievedPercent: number
     weeksAchieved?: number
     totalWeeks?: number
+    unit?: 'video' | 'image'
 }
 
 export default function KPICards({
@@ -25,16 +26,18 @@ export default function KPICards({
     teamTargetPoints,
     weeksAchieved = 0,
     totalWeeks = 24,
+    unit = 'video',
 }: KPICardsProps) {
     const totalTasks = doneTasks + notDoneTasks
     const projectedTotal = totalPoints + notDonePoints
     const gap = projectedTotal - teamTargetPoints
 
+    const isImageMode = unit === 'image'
     const cards = [
         {
-            title: 'Tổng Videos',
+            title: isImageMode ? 'Tổng Images' : 'Tổng Videos',
             value: totalVideos.toLocaleString(),
-            icon: Film,
+            icon: isImageMode ? Image : Film,
             bgColor: 'bg-blue-500/10',
             textColor: 'text-blue-400',
             glowColor: 'hover:shadow-blue-500/15',
