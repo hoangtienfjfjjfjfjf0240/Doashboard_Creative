@@ -318,16 +318,19 @@ export default function SettingsPage() {
         }))
     }
 
-    // Apply to all weeks in selected month (for all visible members)
+    // Apply to weeks in selected month — respects member filter
     const applyToMonth = () => {
         setTargets(prev => prev.map(t => {
+            // If a specific member is selected, only update that member
+            if (selectedMember !== 'all' && t.assignee_name !== selectedMember) return t
             const newTargets = { ...t.targets }
             weeksInMonth.forEach(w => {
                 newTargets[w.actualWeekNum] = parseInt(defaultTarget) || 160
             })
             return { ...t, targets: newTargets }
         }))
-        setMessage({ type: 'success', text: `✅ Đã áp dụng ${parseInt(defaultTarget) || 160} điểm cho tất cả tuần trong ${MONTHS_2026[selectedMonth].label}` })
+        const memberLabel = selectedMember === 'all' ? 'tất cả thành viên' : selectedMember
+        setMessage({ type: 'success', text: `✅ Đã áp dụng ${parseInt(defaultTarget) || 160} điểm cho ${memberLabel} trong ${MONTHS_2026[selectedMonth].label}` })
         setTimeout(() => setMessage(null), 5000)
     }
 
