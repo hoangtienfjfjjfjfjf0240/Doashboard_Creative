@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Save, Target, ChevronDown, CalendarOff, Filter } from 'lucide-react'
+import { Save, Target, ChevronDown, CalendarOff, Filter, Calendar, LayoutGrid } from 'lucide-react'
 import { format, startOfWeek, addWeeks, getWeek, getMonth } from 'date-fns'
 import DashboardLayout from '@/components/DashboardLayout'
 import { CREATIVE_POINT_CONFIG, WORKING_DAYS_PER_WEEK } from '@/lib/constants'
@@ -74,6 +74,7 @@ export default function SettingsPage() {
     const [showMonthDropdown, setShowMonthDropdown] = useState(false)
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
     const [selectedMember, setSelectedMember] = useState<string>('all')
+    const [viewMode, setViewMode] = useState<'month' | 'all'>('month')
     const defaultTargetRef = useRef(defaultTarget)
     defaultTargetRef.current = defaultTarget
     const initialLoadDone = useRef(false)
@@ -85,6 +86,11 @@ export default function SettingsPage() {
     const weeksInMonth = useMemo(() => {
         return weeks2026.filter(w => w.month === selectedMonth)
     }, [weeks2026, selectedMonth])
+
+    // Display weeks based on view mode
+    const displayWeeks = useMemo(() => {
+        return viewMode === 'month' ? weeksInMonth : weeks2026
+    }, [viewMode, weeksInMonth, weeks2026])
 
     useEffect(() => {
         const checkAccess = async () => {
@@ -482,6 +488,32 @@ export default function SettingsPage() {
                             + Áp dụng cho {MONTHS_2026[selectedMonth].label}
                         </button>
 
+                        {/* View Mode Toggle */}
+                        <div className="flex items-center bg-slate-700/50 rounded-lg p-0.5 border border-slate-600/50">
+                            <button
+                                onClick={() => setViewMode('month')}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                                    viewMode === 'month'
+                                        ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/40'
+                                        : 'text-slate-400 hover:text-slate-200'
+                                }`}
+                            >
+                                <Calendar className="w-3.5 h-3.5" />
+                                Theo tháng
+                            </button>
+                            <button
+                                onClick={() => setViewMode('all')}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                                    viewMode === 'all'
+                                        ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/40'
+                                        : 'text-slate-400 hover:text-slate-200'
+                                }`}
+                            >
+                                <LayoutGrid className="w-3.5 h-3.5" />
+                                Tất cả tuần
+                            </button>
+                        </div>
+
                         {/* Member Filter */}
                         <div className="flex items-center gap-2 ml-auto">
                             <Filter className="w-4 h-4 text-slate-400" />
@@ -507,10 +539,10 @@ export default function SettingsPage() {
                                         <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap sticky left-0 bg-slate-800 z-20 min-w-[120px]">
                                             👤 Thành viên
                                         </th>
-                                        {weeks2026.map(week => (
+                                        {displayWeeks.map(week => (
                                             <th
                                                 key={week.weekNum}
-                                                className={`px-2 py-3 text-xs font-medium text-center whitespace-nowrap min-w-[80px] ${week.actualWeekNum === currentWeekNum
+                                                className={`px-2 py-3 text-xs font-medium text-center whitespace-nowrap ${viewMode === 'month' ? 'min-w-[120px]' : 'min-w-[80px]'} ${week.actualWeekNum === currentWeekNum
                                                     ? 'bg-purple-600/30 text-purple-300'
                                                     : week.month === selectedMonth
                                                         ? 'bg-blue-600/20 text-blue-300'
@@ -529,7 +561,7 @@ export default function SettingsPage() {
                                             <td className="px-4 py-3 text-sm font-medium text-white whitespace-nowrap sticky left-0 bg-slate-800/95 z-10">
                                                 {member.assignee_name}
                                             </td>
-                                            {weeks2026.map(week => {
+                                            {displayWeeks.map(week => {
                                                 const target = member.targets[week.actualWeekNum]
                                                 const deduction = member.dayOffDeductions[week.actualWeekNum] || 0
                                                 const adjustedTarget = target !== undefined && target > 0 ? Math.max(0, Math.round((target - deduction) * 10) / 10) : undefined
@@ -616,7 +648,7 @@ export default function SettingsPage() {
                             {targets.filter(m => selectedMember === 'all' || m.assignee_name === selectedMember).map((member) => {
                                 let totalActual = 0
                                 let totalTarget = 0
-                                weeks2026.forEach(week => {
+                                displayWeeks.forEach(week => {
                                     const t = member.targets[week.actualWeekNum]
                                     const d = member.dayOffDeductions[week.actualWeekNum] || 0
                                     const adj = t !== undefined && t > 0 ? Math.max(0, Math.round((t - d) * 10) / 10) : 0
