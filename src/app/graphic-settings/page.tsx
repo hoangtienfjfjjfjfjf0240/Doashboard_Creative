@@ -413,29 +413,38 @@ export default function GraphicSettingsPage() {
 
                     <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden">
                         <div className="overflow-x-auto">
-                            <table className="w-full">
+                            <table className="w-full" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
                                 <thead className="bg-slate-700/30 sticky top-0 z-10">
                                     <tr>
                                         <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap sticky left-0 bg-slate-800 z-20 min-w-[120px]">
                                             👤 Designer
                                         </th>
-                                        {displayWeeks.map(week => (
-                                            <th
-                                                key={week.weekNum}
-                                                className={`px-2 py-3 text-xs font-medium text-center whitespace-nowrap ${viewMode === 'month' ? 'min-w-[120px]' : 'min-w-[80px]'} ${week.actualWeekNum === currentWeekNum
-                                                    ? 'bg-cyan-600/30 text-cyan-300'
-                                                    : week.month === selectedMonth
-                                                        ? 'bg-blue-600/20 text-blue-300'
-                                                        : 'text-slate-400'
-                                                    }`}
-                                            >
-                                                {week.label}
-                                            </th>
-                                        ))}
+                                        {displayWeeks.map(week => {
+                                            const isCurrentWeek = week.actualWeekNum === currentWeekNum
+                                            return (
+                                                <th
+                                                    key={week.weekNum}
+                                                    className={`px-2 py-3 text-xs font-medium text-center whitespace-nowrap ${viewMode === 'month' ? 'min-w-[120px]' : 'min-w-[80px]'} ${isCurrentWeek
+                                                        ? 'bg-cyan-600/30 text-cyan-300'
+                                                        : week.month === selectedMonth
+                                                            ? 'bg-blue-600/20 text-blue-300'
+                                                            : 'text-slate-400'
+                                                        }`}
+                                                    style={isCurrentWeek ? {
+                                                        borderLeft: '2px solid rgb(6, 182, 212)',
+                                                        borderRight: '2px solid rgb(6, 182, 212)',
+                                                        borderTop: '2px solid rgb(6, 182, 212)',
+                                                        boxShadow: 'inset 0 0 12px rgba(6, 182, 212, 0.3), 0 0 8px rgba(6, 182, 212, 0.2)'
+                                                    } : undefined}
+                                                >
+                                                    {week.label}
+                                                </th>
+                                            )
+                                        })}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-700/50">
-                                    {targets.filter(m => selectedMember === 'all' || m.assignee_name === selectedMember).map((member) => (
+                                    {targets.filter(m => selectedMember === 'all' || m.assignee_name === selectedMember).map((member, memberIdx, filteredArr) => (
                                         <tr key={member.assignee_name} className="hover:bg-slate-700/20">
                                             <td className="px-4 py-3 text-sm font-medium text-white whitespace-nowrap sticky left-0 bg-slate-800/95 z-10">
                                                 {member.assignee_name}
@@ -458,15 +467,24 @@ export default function GraphicSettingsPage() {
                                                     cellBg = isAchieved ? 'bg-green-500/20' : 'bg-red-500/20'
                                                 }
 
+                                                const isCurrentWeek = week.actualWeekNum === currentWeekNum
+                                                const isLastRow = memberIdx === filteredArr.length - 1
+
                                                 return (
                                                     <td
                                                         key={week.weekNum}
-                                                        className={`px-1 py-2 text-center ${week.actualWeekNum === currentWeekNum
+                                                        className={`px-1 py-2 text-center ${isCurrentWeek
                                                             ? 'bg-cyan-600/20'
                                                             : week.month === selectedMonth
                                                                 ? 'bg-blue-600/10'
                                                                 : ''
                                                             } ${cellBg}`}
+                                                        style={isCurrentWeek ? {
+                                                            borderLeft: '2px solid rgb(6, 182, 212)',
+                                                            borderRight: '2px solid rgb(6, 182, 212)',
+                                                            ...(isLastRow ? { borderBottom: '2px solid rgb(6, 182, 212)' } : {}),
+                                                            boxShadow: 'inset 0 0 12px rgba(6, 182, 212, 0.15)'
+                                                        } : undefined}
                                                     >
                                                         <div className="flex flex-col items-center gap-1">
                                                             <div className={`text-sm font-bold px-2 py-0.5 rounded ${!hasActual && !hasTarget

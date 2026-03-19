@@ -32,19 +32,30 @@ export default function DueDateStats({ tasks, dueDateChanges = [] }: DueDateStat
     })
 
     // Check if a task had a late due_date change
-    // Late = due_date was modified AFTER the old_due_date day ended (next day or later)
+    // Late if:
+    //   1. due_date was pushed forward (new_due_date > old_due_date) — regardless of when
+    //   2. OR due_date was changed AFTER the old deadline had passed
     const isTaskLateByDueDateChange = (taskId: string): boolean => {
         const changes = changesByTask.get(taskId)
         if (!changes || changes.length === 0) return false
 
         return changes.some(change => {
-            if (!change.old_due_date || !change.changed_at) return false
-            // old_due_date is like "2026-01-19"
-            // changed_at is like "2026-01-20T10:30:00.000Z"
-            // Late if changed_at date > old_due_date date
-            const oldDueDay = change.old_due_date.split('T')[0] // "2026-01-19"
-            const changedDay = change.changed_at.split('T')[0]  // "2026-01-20"
-            return changedDay > oldDueDay
+            if (!change.old_due_date) return false
+            const oldDueDay = change.old_due_date.split('T')[0]
+
+            // Case 1: due_date pushed to a later date → always late
+            if (change.new_due_date) {
+                const newDueDay = change.new_due_date.split('T')[0]
+                if (newDueDay > oldDueDay) return true
+            }
+
+            // Case 2: due_date changed after the old deadline passed
+            if (change.changed_at) {
+                const changedDay = change.changed_at.split('T')[0]
+                if (changedDay > oldDueDay) return true
+            }
+
+            return false
         })
     }
 
