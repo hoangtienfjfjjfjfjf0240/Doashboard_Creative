@@ -275,16 +275,21 @@ export default function GraphicDashboardPage() {
     // Cap to numWeeks most recent week starts to avoid over-counting
     const distinctWeekStarts = allWeekStarts.length > numWeeks ? allWeekStarts.slice(-numWeeks) : allWeekStarts
 
+    // Normalize names for comparison (strip diacritics + lowercase)
+    const normalizeName = (name: string) => name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+
     // Get target for a specific member for a specific week
     const getTargetForMemberWeek = (memberName: string, weekStartStr: string): number => {
-        const target = targets.find(t => t.user_gid === memberName && t.week_start_date === weekStartStr)
+        const norm = normalizeName(memberName)
+        const target = targets.find(t => normalizeName(t.user_gid) === norm && t.week_start_date === weekStartStr)
         if (target) return Number(target.target_points) || FALLBACK_TARGET
         return FALLBACK_TARGET
     }
 
     // Get target for a member (first found, for display/fallback purposes)
     const getTargetForMember = (memberName: string): number => {
-        const memberTarget = targets.find(t => t.user_gid === memberName)
+        const norm = normalizeName(memberName)
+        const memberTarget = targets.find(t => normalizeName(t.user_gid) === norm)
         if (memberTarget) return Number(memberTarget.target_points) || FALLBACK_TARGET
         return FALLBACK_TARGET
     }
