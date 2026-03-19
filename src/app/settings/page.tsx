@@ -666,7 +666,7 @@ export default function SettingsPage() {
                             {targets.filter(m => selectedMember === 'all' || m.assignee_name === selectedMember).map((member) => {
                                 let totalActual = 0
                                 let totalTarget = 0
-                                displayWeeks.forEach(week => {
+                                weeks2026.forEach(week => {
                                     const t = member.targets[week.actualWeekNum]
                                     const d = member.dayOffDeductions[week.actualWeekNum] || 0
                                     const adj = t !== undefined && t > 0 ? Math.max(0, Math.round((t - d) * 10) / 10) : 0
