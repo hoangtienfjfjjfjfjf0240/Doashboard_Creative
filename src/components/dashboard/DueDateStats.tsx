@@ -61,6 +61,9 @@ export default function DueDateStats({ tasks, dueDateChanges = [] }: DueDateStat
 
     const stats = tasks.reduce((acc, task) => {
         if (!task.assignee_name || task.status !== 'done' || !task.completed_at || !task.due_date) return acc
+        // Only count tasks from Feb 2026 onwards (deployed period)
+        const dueDate = new Date(task.due_date)
+        if (dueDate.getFullYear() < 2026 || (dueDate.getFullYear() === 2026 && dueDate.getMonth() < 1)) return acc
         if (!acc[task.assignee_name]) acc[task.assignee_name] = { total: 0, onTime: 0, late: 0 }
         acc[task.assignee_name].total++
 
