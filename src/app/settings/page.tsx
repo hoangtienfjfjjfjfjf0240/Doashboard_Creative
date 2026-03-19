@@ -81,6 +81,14 @@ export default function SettingsPage() {
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
     const [selectedMember, setSelectedMember] = useState<string>('all')
     const [viewMode, setViewMode] = useState<'month' | 'all'>('month')
+    const [dayOffTooltip, setDayOffTooltip] = useState<{
+        memberName: string
+        weekNum: number
+        details: DayOffDetail[]
+        deduction: number
+        x: number
+        y: number
+    } | null>(null)
     const defaultTargetRef = useRef(defaultTarget)
     defaultTargetRef.current = defaultTarget
     const initialLoadDone = useRef(false)
@@ -641,36 +649,27 @@ export default function SettingsPage() {
                                                             </div>
                                                             {/* Day off indicator with tooltip */}
                                                             {hasDayOff && (
-                                                                <div className="relative group/dayoff">
-                                                                    <div className="text-[10px] text-orange-400 flex items-center gap-0.5 cursor-pointer">
-                                                                        <CalendarOff className="w-3 h-3" />
-                                                                        -{deduction.toFixed(0)}
-                                                                    </div>
-                                                                    {/* Tooltip popup */}
-                                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/dayoff:block z-50 pointer-events-none">
-                                                                        <div className="bg-slate-900 border border-orange-500/40 rounded-lg px-3 py-2 shadow-xl shadow-black/50 min-w-[160px]">
-                                                                            <div className="text-[11px] font-semibold text-orange-400 mb-1.5 flex items-center gap-1">
-                                                                                <CalendarOff className="w-3 h-3" />
-                                                                                Ngày nghỉ
-                                                                            </div>
-                                                                            {(member.dayOffDetails[week.actualWeekNum] || []).map((d, i) => {
-                                                                                const dateObj = new Date(d.date + 'T00:00:00')
-                                                                                const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
-                                                                                return (
-                                                                                    <div key={i} className="text-[11px] text-slate-300 flex items-center justify-between gap-2 py-0.5">
-                                                                                        <span>{dayNames[dateObj.getDay()]} {dateObj.getDate()}/{dateObj.getMonth() + 1}</span>
-                                                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${d.is_half_day ? 'bg-yellow-500/20 text-yellow-400' : 'bg-orange-500/20 text-orange-400'}`}>
-                                                                                            {d.is_half_day ? '½ ngày' : 'Cả ngày'}
-                                                                                        </span>
-                                                                                    </div>
-                                                                                )
-                                                                            })}
-                                                                            <div className="mt-1 pt-1 border-t border-slate-700 text-[10px] text-slate-500">
-                                                                                Trừ: -{deduction.toFixed(1)} điểm
-                                                                            </div>
-                                                                            <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[5px] border-t-orange-500/40" />
-                                                                        </div>
-                                                                    </div>
+                                                                <div
+                                                                    className="text-[10px] text-orange-400 flex items-center gap-0.5 cursor-pointer hover:text-orange-300 transition-colors"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation()
+                                                                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                                                                        setDayOffTooltip(prev =>
+                                                                            prev?.memberName === member.assignee_name && prev?.weekNum === week.actualWeekNum
+                                                                                ? null
+                                                                                : {
+                                                                                    memberName: member.assignee_name,
+                                                                                    weekNum: week.actualWeekNum,
+                                                                                    details: member.dayOffDetails[week.actualWeekNum] || [],
+                                                                                    deduction,
+                                                                                    x: rect.left + rect.width / 2,
+                                                                                    y: rect.top
+                                                                                }
+                                                                        )
+                                                                    }}
+                                                                >
+                                                                    <CalendarOff className="w-3 h-3" />
+                                                                    -{deduction.toFixed(0)}
                                                                 </div>
                                                             )}
                                                             {/* Target input - all users can edit their own targets */}
@@ -766,6 +765,47 @@ export default function SettingsPage() {
                             <span>Có ngày nghỉ (target tự động giảm: target ÷ {WORKING_DAYS_PER_WEEK} ngày)</span>
                         </div>
                     </div>
+
+                    {/* Fixed-position Day Off Tooltip */}
+                    {dayOffTooltip && (
+                        <>
+                            <div className="fixed inset-0 z-[60]" onClick={() => setDayOffTooltip(null)} />
+                            <div
+                                className="fixed z-[70]"
+                                style={{
+                                    left: dayOffTooltip.x,
+                                    top: dayOffTooltip.y,
+                                    transform: 'translate(-50%, -100%) translateY(-8px)'
+                                }}
+                            >
+                                <div className="bg-slate-900 border border-orange-500/40 rounded-lg px-3 py-2 shadow-xl shadow-black/50 min-w-[170px]">
+                                    <div className="text-[11px] font-semibold text-orange-400 mb-1.5 flex items-center gap-1">
+                                        <CalendarOff className="w-3 h-3" />
+                                        Ngày nghỉ — {dayOffTooltip.memberName}
+                                    </div>
+                                    {dayOffTooltip.details.map((d, i) => {
+                                        const dateObj = new Date(d.date + 'T00:00:00')
+                                        const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
+                                        return (
+                                            <div key={i} className="text-[11px] text-slate-300 flex items-center justify-between gap-3 py-0.5">
+                                                <span>{dayNames[dateObj.getDay()]} {dateObj.getDate()}/{dateObj.getMonth() + 1}</span>
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded ${d.is_half_day ? 'bg-yellow-500/20 text-yellow-400' : 'bg-orange-500/20 text-orange-400'}`}>
+                                                    {d.is_half_day ? '½ ngày' : 'Cả ngày'}
+                                                </span>
+                                            </div>
+                                        )
+                                    })}
+                                    <div className="mt-1 pt-1 border-t border-slate-700 text-[10px] text-slate-500">
+                                        Trừ: -{dayOffTooltip.deduction.toFixed(1)} điểm
+                                    </div>
+                                </div>
+                                {/* Arrow */}
+                                <div className="flex justify-center">
+                                    <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-orange-500/40" />
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </main>
             </div>
         </DashboardLayout>
