@@ -550,7 +550,7 @@ export default function SettingsPage() {
                     </div>
 
                     {/* Targets Table */}
-                    <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden">
+                    <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl">
                         <div className="overflow-x-auto">
                             <table className="w-full" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
                                 <thead className="bg-slate-700/30 sticky top-0 z-10">
