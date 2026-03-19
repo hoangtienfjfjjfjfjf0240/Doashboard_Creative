@@ -591,7 +591,7 @@ export default function DashboardPage() {
                     {/* Row 3: Leaderboard + Due Date Stats + CTST */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
                         <Leaderboard data={filteredLeaderboardData} />
-                        <DueDateStats tasks={displayTasks} dueDateChanges={dueDateChanges} />
+                        <DueDateStats tasks={allTasks} dueDateChanges={dueDateChanges} />
                         <CTSTChart tasks={displayTasks} />
                     </div>
 
