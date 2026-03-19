@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Save, Target, ChevronDown, CalendarOff, Filter, Calendar, LayoutGrid } from 'lucide-react'
@@ -8,11 +8,17 @@ import { format, startOfWeek, addWeeks, getWeek, getMonth } from 'date-fns'
 import DashboardLayout from '@/components/DashboardLayout'
 import { CREATIVE_POINT_CONFIG, WORKING_DAYS_PER_WEEK } from '@/lib/constants'
 
+interface DayOffDetail {
+    date: string
+    is_half_day: boolean
+}
+
 interface AssigneeTarget {
     assignee_name: string
     targets: Record<number, number>
     actualPoints: Record<number, number>
     dayOffDeductions: Record<number, number>
+    dayOffDetails: Record<number, DayOffDetail[]>
 }
 
 interface DayOffRecord {
@@ -186,11 +192,13 @@ export default function SettingsPage() {
             const targetsMap: Record<string, Record<number, number>> = {}
             const actualPointsMap: Record<string, Record<number, number>> = {}
             const dayOffDeductionsMap: Record<string, Record<number, number>> = {}
+            const dayOffDetailsMap: Record<string, Record<number, DayOffDetail[]>> = {}
 
             memberNames.forEach(name => {
                 targetsMap[name] = {}
                 actualPointsMap[name] = {}
                 dayOffDeductionsMap[name] = {}
+                dayOffDetailsMap[name] = {}
             })
 
             // Process existing targets
@@ -226,6 +234,16 @@ export default function SettingsPage() {
                     if (!dayOffDeductionsMap[memberName]) {
                         dayOffDeductionsMap[memberName] = {}
                     }
+                    if (!dayOffDetailsMap[memberName]) {
+                        dayOffDetailsMap[memberName] = {}
+                    }
+                    if (!dayOffDetailsMap[memberName][weekNum]) {
+                        dayOffDetailsMap[memberName][weekNum] = []
+                    }
+                    dayOffDetailsMap[memberName][weekNum].push({
+                        date: dayOff.date,
+                        is_half_day: dayOff.is_half_day
+                    })
                     const currentDeduction = dayOffDeductionsMap[memberName][weekNum] || 0
                     // Cap deduction at the weekly target (can't deduct more than target)
                     dayOffDeductionsMap[memberName][weekNum] = Math.min(currentDeduction + deduction, weeklyTarget)
@@ -267,7 +285,8 @@ export default function SettingsPage() {
                 assignee_name: name,
                 targets: targetsMap[name] || {},
                 actualPoints: actualPointsMap[name] || {},
-                dayOffDeductions: dayOffDeductionsMap[name] || {}
+                dayOffDeductions: dayOffDeductionsMap[name] || {},
+                dayOffDetails: dayOffDetailsMap[name] || {}
             }))
 
             setTargets(targetsArray)
@@ -620,11 +639,38 @@ export default function SettingsPage() {
                                                                 }`}>
                                                                 {hasActual ? (Number.isInteger(actual) ? actual : actual.toFixed(1)) : '-'}/{hasTarget ? adjustedTarget : hasOriginalTarget ? adjustedTarget : '-'}
                                                             </div>
-                                                            {/* Day off indicator */}
+                                                            {/* Day off indicator with tooltip */}
                                                             {hasDayOff && (
-                                                                <div className="text-[10px] text-orange-400 flex items-center gap-0.5" title={`Nghỉ: -${deduction.toFixed(1)}đ`}>
-                                                                    <CalendarOff className="w-3 h-3" />
-                                                                    -{deduction.toFixed(0)}
+                                                                <div className="relative group/dayoff">
+                                                                    <div className="text-[10px] text-orange-400 flex items-center gap-0.5 cursor-pointer">
+                                                                        <CalendarOff className="w-3 h-3" />
+                                                                        -{deduction.toFixed(0)}
+                                                                    </div>
+                                                                    {/* Tooltip popup */}
+                                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/dayoff:block z-50 pointer-events-none">
+                                                                        <div className="bg-slate-900 border border-orange-500/40 rounded-lg px-3 py-2 shadow-xl shadow-black/50 min-w-[160px]">
+                                                                            <div className="text-[11px] font-semibold text-orange-400 mb-1.5 flex items-center gap-1">
+                                                                                <CalendarOff className="w-3 h-3" />
+                                                                                Ngày nghỉ
+                                                                            </div>
+                                                                            {(member.dayOffDetails[week.actualWeekNum] || []).map((d, i) => {
+                                                                                const dateObj = new Date(d.date + 'T00:00:00')
+                                                                                const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
+                                                                                return (
+                                                                                    <div key={i} className="text-[11px] text-slate-300 flex items-center justify-between gap-2 py-0.5">
+                                                                                        <span>{dayNames[dateObj.getDay()]} {dateObj.getDate()}/{dateObj.getMonth() + 1}</span>
+                                                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${d.is_half_day ? 'bg-yellow-500/20 text-yellow-400' : 'bg-orange-500/20 text-orange-400'}`}>
+                                                                                            {d.is_half_day ? '½ ngày' : 'Cả ngày'}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                )
+                                                                            })}
+                                                                            <div className="mt-1 pt-1 border-t border-slate-700 text-[10px] text-slate-500">
+                                                                                Trừ: -{deduction.toFixed(1)} điểm
+                                                                            </div>
+                                                                            <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[5px] border-t-orange-500/40" />
+                                                                        </div>
+                                                                    </div>
                                                                 </div>
                                                             )}
                                                             {/* Target input - all users can edit their own targets */}
