@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { History, Search, ArrowRight, Calendar, User } from 'lucide-react'
+import { History, Search, ArrowRight, Calendar, User, ExternalLink } from 'lucide-react'
 import { format } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import DashboardLayout from '@/components/DashboardLayout'
@@ -240,9 +240,16 @@ export default function HistoryPage() {
                                             return (
                                                 <tr key={change.id} className="hover:bg-slate-700/20 transition-colors">
                                                     <td className="px-4 py-3 text-sm text-white max-w-[300px]">
-                                                        <div className="truncate" title={change.task_name}>
-                                                            {change.task_name}
-                                                        </div>
+                                                        <a
+                                                            href={`https://app.asana.com/0/0/${change.task_id}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="flex items-center gap-1.5 hover:text-purple-300 transition-colors group"
+                                                            title="Mở trên Asana"
+                                                        >
+                                                            <span className="truncate">{change.task_name}</span>
+                                                            <ExternalLink className="w-3 h-3 text-slate-500 group-hover:text-purple-400 shrink-0" />
+                                                        </a>
                                                     </td>
                                                     <td className="px-4 py-3 text-sm text-slate-300">
                                                         {change.assignee_name || '-'}
@@ -268,8 +275,10 @@ export default function HistoryPage() {
                                                     <td className="px-4 py-3 text-sm text-amber-300">
                                                         {change.changed_by}
                                                     </td>
-                                                    <td className="px-4 py-3 text-sm text-slate-500 whitespace-nowrap">
-                                                        {formatDateTime(change.changed_at)}
+                                                    <td className="px-4 py-3 whitespace-nowrap">
+                                                        <span className="text-sm font-semibold text-amber-400">
+                                                            {formatDateTime(change.changed_at)}
+                                                        </span>
                                                     </td>
                                                 </tr>
                                             )
