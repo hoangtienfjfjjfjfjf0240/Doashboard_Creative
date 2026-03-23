@@ -21,17 +21,13 @@ export default function Sidebar() {
     const creativeItems = [
         { title: 'Overview', path: '/dashboard', icon: LayoutTemplate },
         { title: 'Mục tiêu Target', path: '/settings', icon: Target },
-        ...(isCreativeAdmin ? [
-            { title: 'Lịch sử Due Date', path: '/history', icon: History },
-        ] : []),
+        { title: 'Lịch sử Due Date', path: '/history', icon: History },
     ]
 
     const graphicItems = [
         { title: 'Overview', path: '/graphic-dashboard', icon: LayoutTemplate },
         { title: 'Mục tiêu Target', path: '/graphic-settings', icon: Target },
-        ...(isGraphicAdmin ? [
-            { title: 'Lịch sử Due Date', path: '/graphic-history', icon: History },
-        ] : []),
+        { title: 'Lịch sử Due Date', path: '/graphic-history', icon: History },
     ]
 
     const commonItems = [

@@ -29,6 +29,8 @@ export default function GraphicHistoryPage() {
     const [searchQuery, setSearchQuery] = useState('')
     const [filterAssignee, setFilterAssignee] = useState('')
     const [assignees, setAssignees] = useState<string[]>([])
+    const [isManager, setIsManager] = useState(false)
+    const [userName, setUserName] = useState('')
 
     useEffect(() => {
         const fetchHistory = async () => {
@@ -37,26 +39,47 @@ export default function GraphicHistoryPage() {
 
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('role, role_graphic')
+                .select('role, role_graphic, full_name, asana_name')
                 .eq('id', user.id)
                 .single()
 
-            if (!profile || (!['admin', 'lead'].includes(profile.role) && !['admin', 'lead', 'manager'].includes(profile.role_graphic || ''))) {
+            if (!profile) {
                 router.push('/graphic-dashboard')
                 return
             }
 
-            const { data, error } = await supabase
+            const managerRole = ['admin', 'lead'].includes(profile.role) || ['admin', 'lead', 'manager'].includes(profile.role_graphic || '')
+            setIsManager(managerRole)
+            const displayName = profile.asana_name || profile.full_name || ''
+            setUserName(displayName)
+
+            let query = supabase
                 .from('due_date_changes')
                 .select('id, task_id, task_name, assignee_name, old_due_date, new_due_date, changed_by, changed_at, reason')
                 .eq('project_type', 'graphic')
                 .order('changed_at', { ascending: false })
                 .limit(200)
 
+            // Members only see their own data
+            if (!managerRole && displayName) {
+                query = query.eq('assignee_name', displayName)
+            }
+
+            const { data, error } = await query
+
             if (data && !error) {
-                setChanges(data)
-                const uniqueAssignees = [...new Set(data.map(c => c.assignee_name).filter(Boolean))]
-                setAssignees(uniqueAssignees.sort())
+                // For members: only show late entries (changed_at > old_due_date)
+                const filteredData = managerRole ? data : data.filter(c => {
+                    if (!c.old_due_date || !c.changed_at) return false
+                    const oldDueDay = c.old_due_date.split('T')[0]
+                    const changedDay = c.changed_at.split('T')[0]
+                    return changedDay > oldDueDay
+                })
+                setChanges(filteredData)
+                if (managerRole) {
+                    const uniqueAssignees = [...new Set(data.map(c => c.assignee_name).filter(Boolean))]
+                    setAssignees(uniqueAssignees.sort())
+                }
             }
             setLoading(false)
         }
@@ -101,8 +124,12 @@ export default function GraphicHistoryPage() {
                         <div className="flex items-center gap-3">
                             <History className="w-6 h-6 text-cyan-400" />
                             <div>
-                                <h2 className="text-xl font-bold text-white">Lịch sử Due Date — Graphic Design</h2>
-                                <p className="text-sm text-slate-400">Theo dõi thay đổi deadline của task design</p>
+                                <h2 className="text-xl font-bold text-white">
+                                    {isManager ? 'Lịch sử Due Date — Graphic Design' : `Lịch sử Due Date — ${userName}`}
+                                </h2>
+                                <p className="text-sm text-slate-400">
+                                    {isManager ? 'Theo dõi thay đổi deadline của task design' : 'Các lần thay đổi deadline của bạn'}
+                                </p>
                             </div>
                         </div>
                         <div className="text-sm text-slate-500">
@@ -123,16 +150,18 @@ export default function GraphicHistoryPage() {
                                 className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                             />
                         </div>
-                        <select
-                            value={filterAssignee}
-                            onChange={(e) => setFilterAssignee(e.target.value)}
-                            className="px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                        >
-                            <option value="">Tất cả designer</option>
-                            {assignees.map(a => (
-                                <option key={a} value={a}>{a}</option>
-                            ))}
-                        </select>
+                        {isManager && (
+                            <select
+                                value={filterAssignee}
+                                onChange={(e) => setFilterAssignee(e.target.value)}
+                                className="px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                            >
+                                <option value="">Tất cả designer</option>
+                                {assignees.map(a => (
+                                    <option key={a} value={a}>{a}</option>
+                                ))}
+                            </select>
+                        )}
                     </div>
 
                     {filteredChanges.length === 0 ? (

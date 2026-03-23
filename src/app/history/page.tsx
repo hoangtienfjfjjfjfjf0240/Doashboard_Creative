@@ -29,6 +29,8 @@ export default function HistoryPage() {
     const [searchQuery, setSearchQuery] = useState('')
     const [filterAssignee, setFilterAssignee] = useState('')
     const [assignees, setAssignees] = useState<string[]>([])
+    const [isManager, setIsManager] = useState(false)
+    const [userName, setUserName] = useState('')
 
     useEffect(() => {
         const fetchHistory = async () => {
@@ -38,30 +40,52 @@ export default function HistoryPage() {
                 return
             }
 
-            // Check role — only admin/lead can view
+            // Check role
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('role')
+                .select('role, full_name, asana_name')
                 .eq('id', user.id)
                 .single()
 
-            if (!profile || !['admin', 'lead'].includes(profile.role)) {
+            if (!profile) {
                 router.push('/dashboard')
                 return
             }
 
-            const { data, error } = await supabase
+            const managerRole = ['admin', 'lead'].includes(profile.role)
+            setIsManager(managerRole)
+            const displayName = profile.asana_name || profile.full_name || ''
+            setUserName(displayName)
+
+            // Build query
+            let query = supabase
                 .from('due_date_changes')
                 .select('id, task_id, task_name, assignee_name, old_due_date, new_due_date, changed_by, changed_at, reason')
                 .eq('project_type', 'creative')
                 .order('changed_at', { ascending: false })
                 .limit(200)
 
+            // Members only see their own data
+            if (!managerRole && displayName) {
+                query = query.eq('assignee_name', displayName)
+            }
+
+            const { data, error } = await query
+
             if (data && !error) {
-                setChanges(data)
-                // Get unique assignees for filter
-                const uniqueAssignees = [...new Set(data.map(c => c.assignee_name).filter(Boolean))]
-                setAssignees(uniqueAssignees.sort())
+                // For members: only show late entries (changed_at > old_due_date)
+                const filteredData = managerRole ? data : data.filter(c => {
+                    if (!c.old_due_date || !c.changed_at) return false
+                    const oldDueDay = c.old_due_date.split('T')[0]
+                    const changedDay = c.changed_at.split('T')[0]
+                    return changedDay > oldDueDay
+                })
+                setChanges(filteredData)
+                // Get unique assignees for filter (only useful for managers)
+                if (managerRole) {
+                    const uniqueAssignees = [...new Set(data.map(c => c.assignee_name).filter(Boolean))]
+                    setAssignees(uniqueAssignees.sort())
+                }
             }
             setLoading(false)
         }
@@ -116,9 +140,11 @@ export default function HistoryPage() {
                         <div className="flex items-center gap-3">
                             <History className="w-6 h-6 text-amber-400" />
                             <div>
-                                <h2 className="text-xl font-bold text-white">Lịch sử thay đổi Due Date</h2>
+                                <h2 className="text-xl font-bold text-white">
+                                    {isManager ? 'Lịch sử thay đổi Due Date' : `Lịch sử Due Date - ${userName}`}
+                                </h2>
                                 <p className="text-sm text-slate-400">
-                                    Theo dõi ai đã thay đổi deadline của task
+                                    {isManager ? 'Theo dõi ai đã thay đổi deadline của task' : 'Các lần thay đổi deadline của bạn'}
                                 </p>
                             </div>
                         </div>
@@ -143,17 +169,19 @@ export default function HistoryPage() {
                             />
                         </div>
 
-                        {/* Assignee filter */}
-                        <select
-                            value={filterAssignee}
-                            onChange={(e) => setFilterAssignee(e.target.value)}
-                            className="px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                        >
-                            <option value="">Tất cả thành viên</option>
-                            {assignees.map(a => (
-                                <option key={a} value={a}>{a}</option>
-                            ))}
-                        </select>
+                        {/* Assignee filter - only for managers */}
+                        {isManager && (
+                            <select
+                                value={filterAssignee}
+                                onChange={(e) => setFilterAssignee(e.target.value)}
+                                className="px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            >
+                                <option value="">Tất cả thành viên</option>
+                                {assignees.map(a => (
+                                    <option key={a} value={a}>{a}</option>
+                                ))}
+                            </select>
+                        )}
                     </div>
 
                     {/* Changes Table */}
