@@ -24,6 +24,8 @@ interface DueDateChange {
 interface DueDateStatsProps {
     tasks: Task[]
     dueDateChanges?: DueDateChange[]
+    /** Only count tasks as "late" if due_date >= this date (yyyy-MM-dd). Tasks before this are always "on time". */
+    lateStartDate?: string
 }
 
 interface LateTaskDetail {
@@ -35,7 +37,7 @@ interface LateTaskDetail {
     reasonDetail: string
 }
 
-export default function DueDateStats({ tasks, dueDateChanges = [] }: DueDateStatsProps) {
+export default function DueDateStats({ tasks, dueDateChanges = [], lateStartDate }: DueDateStatsProps) {
     const [expandedUser, setExpandedUser] = useState<string | null>(null)
 
     // Build a map: task_id → list of due_date changes
@@ -98,6 +100,13 @@ export default function DueDateStats({ tasks, dueDateChanges = [] }: DueDateStat
         statsMap[name].total++
 
         const taskId = task.asana_id || ''
+
+        // If lateStartDate is set, tasks with due_date before that date are always "on time"
+        if (lateStartDate && task.due_date < lateStartDate) {
+            statsMap[name].onTime++
+            return
+        }
+
         const lateInfo = taskId ? getTaskLateInfo(taskId) : { late: false, detail: '' }
 
         if (lateInfo.late) {

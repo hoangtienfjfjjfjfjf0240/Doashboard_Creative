@@ -526,7 +526,7 @@ export default function GraphicDashboardPage() {
                     {/* Row 3: Leaderboard + Due Date Stats (NO CTST for Graphic) */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
                         <Leaderboard data={leaderboardData} />
-                        <DueDateStats tasks={allTasks} dueDateChanges={dueDateChanges} />
+                        <DueDateStats tasks={allTasks} dueDateChanges={dueDateChanges} lateStartDate="2026-03-01" />
                     </div>
 
                     {/* Row 4: Task Tables */}
