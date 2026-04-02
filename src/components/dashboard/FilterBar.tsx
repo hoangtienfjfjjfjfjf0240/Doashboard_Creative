@@ -32,11 +32,13 @@ interface FilterBarProps {
 const VIDEO_TYPES = ['S1', 'S2A', 'S2B', 'S3A', 'S3B', 'S4', 'S5', 'S6', 'S7', 'S7A', 'S8', 'S9A', 'S9B', 'S9C', 'S10A']
 
 // Timeline data for 2026 with actual dates
+// Tuần chạy từ Thứ 2 → Thứ 6, xuyên qua ranh giới tháng
 interface WeekData {
-    week: number
-    range: string
-    startDay: number
-    endDay: number
+    week: number        // Week number within its display group (1, 2, 3...)
+    globalWeek: number  // Global week number (1-22)
+    range: string       // Display range e.g. "02/02 – 06/02" or "30/03 – 03/04"
+    startDate: Date     // Monday
+    endDate: Date       // Friday
 }
 
 interface MonthData {
@@ -46,67 +48,59 @@ interface MonthData {
     weeks: WeekData[]
 }
 
-const TIMELINE_2026: MonthData[] = [
-    // Start from February 2026 onwards (bỏ tháng 1)
-    {
-        month: 'Tháng 2 / 2026',
-        monthIndex: 1,
-        year: 2026,
-        weeks: [
-            { week: 1, range: '02 – 06', startDay: 2, endDay: 6 },
-            { week: 2, range: '09 – 13', startDay: 9, endDay: 13 },
-            { week: 3, range: '16 – 20', startDay: 16, endDay: 20 },
-            { week: 4, range: '23 – 27', startDay: 23, endDay: 27 },
-        ]
-    },
-    {
-        month: 'Tháng 3 / 2026',
-        monthIndex: 2,
-        year: 2026,
-        weeks: [
-            { week: 1, range: '02 – 06', startDay: 2, endDay: 6 },
-            { week: 2, range: '09 – 13', startDay: 9, endDay: 13 },
-            { week: 3, range: '16 – 20', startDay: 16, endDay: 20 },
-            { week: 4, range: '23 – 27', startDay: 23, endDay: 27 },
-            { week: 5, range: '30 – 31', startDay: 30, endDay: 31 },
-        ]
-    },
-    {
-        month: 'Tháng 4 / 2026',
-        monthIndex: 3,
-        year: 2026,
-        weeks: [
-            { week: 1, range: '01 – 03', startDay: 1, endDay: 3 },
-            { week: 2, range: '06 – 10', startDay: 6, endDay: 10 },
-            { week: 3, range: '13 – 17', startDay: 13, endDay: 17 },
-            { week: 4, range: '20 – 24', startDay: 20, endDay: 24 },
-            { week: 5, range: '27 – 30', startDay: 27, endDay: 30 },
-        ]
-    },
-    {
-        month: 'Tháng 5 / 2026',
-        monthIndex: 4,
-        year: 2026,
-        weeks: [
-            { week: 1, range: '04 – 08', startDay: 4, endDay: 8 },
-            { week: 2, range: '11 – 15', startDay: 11, endDay: 15 },
-            { week: 3, range: '18 – 22', startDay: 18, endDay: 22 },
-            { week: 4, range: '25 – 29', startDay: 25, endDay: 29 },
-        ]
-    },
-    {
-        month: 'Tháng 6 / 2026',
-        monthIndex: 5,
-        year: 2026,
-        weeks: [
-            { week: 1, range: '01 – 05', startDay: 1, endDay: 5 },
-            { week: 2, range: '08 – 12', startDay: 8, endDay: 12 },
-            { week: 3, range: '15 – 19', startDay: 15, endDay: 19 },
-            { week: 4, range: '22 – 26', startDay: 22, endDay: 26 },
-            { week: 5, range: '29 – 30', startDay: 29, endDay: 30 },
-        ]
-    },
-]
+// Generate real Mon-Fri weeks starting from Feb 2, 2026
+// Weeks cross month boundaries naturally
+function generateTimeline2026(): MonthData[] {
+    const startDate = new Date(2026, 1, 2) // Feb 2, 2026 (Monday)
+    const totalWeeks = 22 // Feb through ~early July
+    const allWeeks: { globalWeek: number; mon: Date; fri: Date }[] = []
+
+    for (let i = 0; i < totalWeeks; i++) {
+        const mon = startOfWeek(addWeeks(startDate, i), { weekStartsOn: 1 })
+        const fri = addDays(mon, 4)
+        allWeeks.push({ globalWeek: i + 1, mon, fri })
+    }
+
+    // Group weeks by the month of Monday (start of week)
+    const monthGroups: Record<string, { monthIndex: number; year: number; weeks: typeof allWeeks }> = {}
+
+    allWeeks.forEach(w => {
+        const monthIdx = w.mon.getMonth()
+        const year = w.mon.getFullYear()
+        const key = `${year}-${monthIdx}`
+        if (!monthGroups[key]) {
+            monthGroups[key] = { monthIndex: monthIdx, year, weeks: [] }
+        }
+        monthGroups[key].weeks.push(w)
+    })
+
+    const monthNames = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12']
+
+    return Object.values(monthGroups).map(group => ({
+        month: `${monthNames[group.monthIndex]} / ${group.year}`,
+        monthIndex: group.monthIndex,
+        year: group.year,
+        weeks: group.weeks.map((w, idx) => {
+            const monDay = w.mon.getDate()
+            const monMonth = w.mon.getMonth() + 1
+            const friDay = w.fri.getDate()
+            const friMonth = w.fri.getMonth() + 1
+            const crossMonth = w.mon.getMonth() !== w.fri.getMonth()
+            const range = crossMonth
+                ? `${String(monDay).padStart(2, '0')}/${String(monMonth).padStart(2, '0')} – ${String(friDay).padStart(2, '0')}/${String(friMonth).padStart(2, '0')}`
+                : `${String(monDay).padStart(2, '0')} – ${String(friDay).padStart(2, '0')}`
+            return {
+                week: idx + 1,
+                globalWeek: w.globalWeek,
+                range,
+                startDate: w.mon,
+                endDate: w.fri,
+            }
+        })
+    }))
+}
+
+const TIMELINE_2026: MonthData[] = generateTimeline2026()
 
 type DatePreset = 'week' | '7days' | '14days' | '28days' | '30days' | 'month-1' | 'month-2' | 'month-3' | 'month-4' | 'month-5' | 'custom'
 
@@ -240,7 +234,7 @@ function MiniCalendar({
 
 // Week key for multi-select
 function getWeekKey(monthData: MonthData, weekData: WeekData): string {
-    return `${monthData.monthIndex}-${weekData.week}-${weekData.startDay}`
+    return `${monthData.monthIndex}-${weekData.globalWeek}`
 }
 
 export default function FilterBar({
@@ -344,18 +338,13 @@ export default function FilterBar({
         let maxEnd: Date | null = null
 
         selectedWeeks.forEach(key => {
-
-            const [monthIdx, , startDay] = key.split('-').map(Number)
+            const [monthIdx, globalWeekStr] = key.split('-').map(Number)
             const monthData = TIMELINE_2026.find(m => m.monthIndex === monthIdx)
             if (monthData) {
-                const weekData = monthData.weeks.find(w => w.startDay === startDay)
+                const weekData = monthData.weeks.find(w => w.globalWeek === globalWeekStr)
                 if (weekData) {
-                    const start = new Date(monthData.year, monthData.monthIndex, weekData.startDay)
-                    const end = new Date(monthData.year, monthData.monthIndex, weekData.endDay)
-
-
-                    if (!minStart || start < minStart) minStart = start
-                    if (!maxEnd || end > maxEnd) maxEnd = end
+                    if (!minStart || weekData.startDate < minStart) minStart = weekData.startDate
+                    if (!maxEnd || weekData.endDate > maxEnd) maxEnd = weekData.endDate
                 }
             }
         })
