@@ -159,8 +159,16 @@ export default function DashboardPage() {
         autoSync()
     }, [loading, allTasks.length])
 
-    // Auto-sync removed — Vercel Cron handles periodic sync.
-    // Realtime subscription below handles live updates.
+    // Auto-sync every 5 minutes (client-side, since Vercel Hobby cron is limited to 1x/day)
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (!syncing) {
+                console.log('[Auto-sync] Triggering periodic sync...')
+                handleSync()
+            }
+        }, 5 * 60 * 1000) // 5 minutes
+        return () => clearInterval(interval)
+    }, [syncing])
 
     // Supabase Realtime: auto-refresh dashboard when tasks/targets change
     // Skip refresh if we just triggered a sync (to prevent double-fetch)
