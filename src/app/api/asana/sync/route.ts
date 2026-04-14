@@ -218,25 +218,23 @@ async function syncProject(projectType: ProjectType): Promise<{ processed: numbe
         }
     }
 
-    // ── Step 5: Smart stale cleanup ──
-    // Only delete 'not_done' tasks that are no longer in Asana (genuinely removed/moved).
-    // NEVER delete 'done' tasks — they are historical records that Asana's
-    // completed_since filter may exclude from the API response.
+    // ── Step 5: Stale cleanup ──
+    // Delete ALL tasks from Supabase that no longer exist in Asana (deleted/moved).
+    // Since we fetch ALL tasks (no completed_since filter), any task missing from
+    // the Asana response has been genuinely removed and should be cleaned up.
     const asanaGids = new Set(asanaTasks.map(t => t.gid))
     if (existingTasksData) {
-        const staleDoneIds = existingTasksData
-            .filter(t => !asanaGids.has(t.asana_id) && t.status === 'done')
-            .map(t => t.asana_id)
-        const staleNotDoneIds = existingTasksData
-            .filter(t => !asanaGids.has(t.asana_id) && t.status !== 'done')
+        const staleIds = existingTasksData
+            .filter(t => !asanaGids.has(t.asana_id))
             .map(t => t.asana_id)
 
-        if (staleDoneIds.length > 0) {
-            console.log(`[Sync ${projectType}] Preserving ${staleDoneIds.length} completed tasks not in Asana response (historical records)`)
-        }
-        if (staleNotDoneIds.length > 0) {
-            console.log(`[Sync ${projectType}] Removing ${staleNotDoneIds.length} incomplete tasks no longer in Asana`)
-            await supabase.from('tasks').delete().in('asana_id', staleNotDoneIds)
+        if (staleIds.length > 0) {
+            console.log(`[Sync ${projectType}] Removing ${staleIds.length} tasks no longer in Asana (deleted/moved)`)
+            // Delete in chunks to avoid query size limits
+            const DEL_CHUNK = 500
+            for (let i = 0; i < staleIds.length; i += DEL_CHUNK) {
+                await supabase.from('tasks').delete().in('asana_id', staleIds.slice(i, i + DEL_CHUNK))
+            }
         }
     }
 
