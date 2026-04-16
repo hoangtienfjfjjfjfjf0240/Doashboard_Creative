@@ -48,7 +48,7 @@ export default function ReportsPage() {
     const [targets, setTargets] = useState<Record<string, Record<number, number>>>({})
     const [timeRange, setTimeRange] = useState<'1month' | '3months' | '6months'>('6months')
     const [selectedMember, setSelectedMember] = useState<string>('all')
-    const [user, setUser] = useState<{ role: string; fullName: string; email: string } | null>(null)
+    const [user, setUser] = useState<{ role: string; fullName: string; email: string; asanaEmail: string; asanaName: string } | null>(null)
 
     const now = new Date()
     const currentWeek = getWeek(now, { weekStartsOn: 1 })
@@ -73,7 +73,7 @@ export default function ReportsPage() {
                 if (authUser) {
                     const { data: profile } = await supabase
                         .from('profiles')
-                        .select('role, full_name')
+                        .select('role, full_name, asana_email, asana_name')
                         .eq('id', authUser.id)
                         .single()
 
@@ -81,6 +81,8 @@ export default function ReportsPage() {
                         role: profile?.role || 'member',
                         fullName: profile?.full_name || '',
                         email: authUser.email || '',
+                        asanaEmail: profile?.asana_email || authUser.email || '',
+                        asanaName: profile?.asana_name || profile?.full_name || '',
                     })
                 }
 
@@ -196,9 +198,16 @@ export default function ReportsPage() {
         return weeks
     }, [filteredMemberStats, startWeek, currentWeek])
 
-    // Filter memberStats for members
-    const roleFilteredMemberStats = isManager ? filteredMemberStats : filteredMemberStats.filter(m => m.name === user?.fullName)
-    const roleFilteredAllMembers = isManager ? allMembers : allMembers.filter(m => m === user?.fullName)
+    // Filter memberStats for members — match by asana_name/email to handle diacritics mismatch
+    const normalizeName = (name: string) => name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+    const matchesMember = (memberName: string) => {
+        const norm = normalizeName(memberName)
+        const userAsanaName = normalizeName(user?.asanaName || '')
+        const userFullName = normalizeName(user?.fullName || '')
+        return norm === userAsanaName || norm === userFullName
+    }
+    const roleFilteredMemberStats = isManager ? filteredMemberStats : filteredMemberStats.filter(m => matchesMember(m.name))
+    const roleFilteredAllMembers = isManager ? allMembers : allMembers.filter(m => matchesMember(m))
 
     if (loading) {
         return (

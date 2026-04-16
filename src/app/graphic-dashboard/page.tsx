@@ -445,7 +445,17 @@ export default function GraphicDashboardPage() {
 
     const canSeeAll = ['admin', 'lead', 'manager'].includes(user?.roleGraphic || '') || ['admin', 'lead'].includes(user?.role || '') || !user?.fullName
 
-    const filteredTasks = canSeeAll ? displayTasks : displayTasks.filter(t => t.assignee_name === user?.fullName)
+    const filteredTasks = canSeeAll ? displayTasks : displayTasks.filter(t => {
+        const taskEmail = (t.assignee_email || '').toLowerCase().trim()
+        const userLoginEmail = (user?.email || '').toLowerCase().trim()
+        const userAsanaEmail = (user?.asanaEmail || '').toLowerCase().trim()
+        const taskName = (t.assignee_name || '').toLowerCase().trim()
+        const userAsanaName = (user?.asanaName || '').toLowerCase().trim()
+        const userFullName = (user?.fullName || '').toLowerCase().trim()
+        const emailMatch = taskEmail && (taskEmail === userLoginEmail || taskEmail === userAsanaEmail)
+        const nameMatch = taskName && (taskName === userAsanaName || taskName === userFullName)
+        return emailMatch || nameMatch
+    })
     const filteredDoneTasks = filteredTasks.filter(t => t.status === 'done')
     const filteredNotDoneTasks = filteredTasks.filter(t => t.status === 'not_done')
 
