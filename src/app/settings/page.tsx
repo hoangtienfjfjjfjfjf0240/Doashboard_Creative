@@ -18,10 +18,12 @@ interface AssigneeTarget {
     targets: Record<number, number>
     actualPoints: Record<number, number>
     dayOffDeductions: Record<number, number>
+    companyHolidayDeductions: Record<number, number>
     dayOffDetails: Record<number, DayOffDetail[]>
 }
 
 interface DayOffRecord {
+    user_email?: string | null
     member_name: string | null
     date: string
     is_half_day: boolean
@@ -42,6 +44,11 @@ const MONTHS_2026 = [
     { value: 10, label: 'Tháng 11' },
     { value: 11, label: 'Tháng 12' },
 ]
+
+function formatPoint(value: number): string {
+    const rounded = Math.round(value * 10) / 10
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
+}
 
 function getWeeksOf2026() {
     const weeks: { weekNum: number; actualWeekNum: number; start: Date; label: string; month: number }[] = []
@@ -195,17 +202,19 @@ export default function SettingsPage() {
             // Fetch day offs for all members
             const { data: dayOffsData } = await supabase
                 .from('day_offs')
-                .select('member_name, date, is_half_day')
+                .select('user_email, member_name, date, is_half_day')
 
             const targetsMap: Record<string, Record<number, number>> = {}
             const actualPointsMap: Record<string, Record<number, number>> = {}
             const dayOffDeductionsMap: Record<string, Record<number, number>> = {}
+            const companyHolidayDeductionsMap: Record<string, Record<number, number>> = {}
             const dayOffDetailsMap: Record<string, Record<number, DayOffDetail[]>> = {}
 
             memberNames.forEach(name => {
                 targetsMap[name] = {}
                 actualPointsMap[name] = {}
                 dayOffDeductionsMap[name] = {}
+                companyHolidayDeductionsMap[name] = {}
                 dayOffDetailsMap[name] = {}
             })
 
@@ -223,7 +232,17 @@ export default function SettingsPage() {
 
             // Process day offs: calculate deductions per member per week
             if (dayOffsData) {
+                const dayOffsByMemberDate = new Map<string, DayOffRecord>()
                 dayOffsData.forEach((dayOff: DayOffRecord) => {
+                    if (!dayOff.member_name || !dayOff.date) return
+                    const key = `${dayOff.member_name}|${dayOff.date}`
+                    const existing = dayOffsByMemberDate.get(key)
+                    if (!existing || dayOff.user_email === 'system@holiday') {
+                        dayOffsByMemberDate.set(key, dayOff)
+                    }
+                })
+
+                dayOffsByMemberDate.forEach((dayOff) => {
                     const memberName = dayOff.member_name
                     if (!memberName) return
                     const date = new Date(dayOff.date + 'T00:00:00')
@@ -231,7 +250,7 @@ export default function SettingsPage() {
 
                     // Skip weekends (Sat=6, Sun=0) — Mon-Fri are working days
                     const dayOfWeek = date.getDay()
-                    if (dayOfWeek === 0 || dayOfWeek === 6) return
+                    if (dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6) return
 
                     const weekNum = getWeek(date, { weekStartsOn: 1 })
 
@@ -241,6 +260,9 @@ export default function SettingsPage() {
 
                     if (!dayOffDeductionsMap[memberName]) {
                         dayOffDeductionsMap[memberName] = {}
+                    }
+                    if (!companyHolidayDeductionsMap[memberName]) {
+                        companyHolidayDeductionsMap[memberName] = {}
                     }
                     if (!dayOffDetailsMap[memberName]) {
                         dayOffDetailsMap[memberName] = {}
@@ -255,6 +277,10 @@ export default function SettingsPage() {
                     const currentDeduction = dayOffDeductionsMap[memberName][weekNum] || 0
                     // Cap deduction at the weekly target (can't deduct more than target)
                     dayOffDeductionsMap[memberName][weekNum] = Math.min(currentDeduction + deduction, weeklyTarget)
+                    if (dayOff.user_email === 'system@holiday') {
+                        const currentHolidayDeduction = companyHolidayDeductionsMap[memberName][weekNum] || 0
+                        companyHolidayDeductionsMap[memberName][weekNum] = Math.min(currentHolidayDeduction + deduction, weeklyTarget)
+                    }
                 })
             }
 
@@ -294,6 +320,7 @@ export default function SettingsPage() {
                 targets: targetsMap[name] || {},
                 actualPoints: actualPointsMap[name] || {},
                 dayOffDeductions: dayOffDeductionsMap[name] || {},
+                companyHolidayDeductions: companyHolidayDeductionsMap[name] || {},
                 dayOffDetails: dayOffDetailsMap[name] || {}
             }))
 
@@ -711,13 +738,25 @@ export default function SettingsPage() {
                             {targets.filter(m => selectedMember === 'all' || m.assignee_name === selectedMember).map((member) => {
                                 let totalActual = 0
                                 let totalTarget = 0
+                                let totalOriginalTarget = 0
+                                let totalDayOffDeduction = 0
                                 weeks2026.forEach(week => {
                                     const t = member.targets[week.actualWeekNum]
                                     const d = member.dayOffDeductions[week.actualWeekNum] || 0
-                                    const adj = t !== undefined && t > 0 ? Math.max(0, Math.round((t - d) * 10) / 10) : 0
+                                    const h = member.companyHolidayDeductions[week.actualWeekNum] || 0
+                                    const hasTarget = t !== undefined && t > 0
+                                    const cappedDeduction = hasTarget ? Math.min(d, t) : 0
+                                    const cappedHolidayDeduction = hasTarget ? Math.min(h, t) : 0
+                                    const adj = hasTarget ? Math.max(0, Math.round((t - cappedDeduction) * 10) / 10) : 0
+                                    const targetAfterCompanyHoliday = hasTarget ? Math.max(0, t - cappedHolidayDeduction) : 0
+                                    totalOriginalTarget += targetAfterCompanyHoliday
+                                    totalDayOffDeduction += Math.max(0, cappedDeduction - cappedHolidayDeduction)
                                     totalTarget += adj
                                     totalActual += member.actualPoints[week.actualWeekNum] || 0
                                 })
+                                totalTarget = Math.round(totalTarget * 10) / 10
+                                totalOriginalTarget = Math.round(totalOriginalTarget * 10) / 10
+                                totalDayOffDeduction = Math.round(totalDayOffDeduction * 10) / 10
                                 const pct = totalTarget > 0 ? (totalActual / totalTarget) * 100 : 0
                                 const isAchieved = pct >= 100
                                 return (
@@ -725,9 +764,17 @@ export default function SettingsPage() {
                                         }`}>
                                         <div className="text-xs text-slate-400 mb-1 truncate" title={member.assignee_name}>{member.assignee_name}</div>
                                         <div className={`text-lg font-bold ${isAchieved ? 'text-green-400' : 'text-yellow-400'}`}>
-                                            {totalActual > 0 ? (Number.isInteger(totalActual) ? totalActual : totalActual.toFixed(1)) : '0'}
-                                            <span className="text-xs font-normal text-slate-500"> / {totalTarget > 0 ? totalTarget : '0'}</span>
+                                            {totalActual > 0 ? formatPoint(totalActual) : '0'}
+                                            <span className="text-xs font-normal text-slate-500"> / {totalTarget > 0 ? formatPoint(totalTarget) : '0'}</span>
                                         </div>
+                                        {totalOriginalTarget > 0 && (
+                                            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] leading-tight text-slate-500">
+                                                <span>Gốc: {formatPoint(totalOriginalTarget)}</span>
+                                                {totalDayOffDeduction > 0 && (
+                                                    <span className="text-orange-400">Nghỉ cá nhân: -{formatPoint(totalDayOffDeduction)}</span>
+                                                )}
+                                            </div>
+                                        )}
                                         {totalTarget > 0 && (
                                             <div className="mt-1">
                                                 <div className="w-full bg-slate-700 rounded-full h-1.5">

@@ -33,6 +33,7 @@ export interface Target {
 }
 
 export interface DayOffEntry {
+    user_email?: string | null
     member_name: string | null
     date: string
     is_half_day: boolean

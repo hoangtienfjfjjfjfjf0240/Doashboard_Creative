@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, getDay, getWeek, startOfWeek, addWeeks } from 'date-fns'
+import { useState, useEffect } from 'react'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, getDay, startOfWeek } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { Calendar, Plus, Loader2, ChevronLeft, ChevronRight, Trash2, Users, User } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import DashboardLayout from '@/components/DashboardLayout'
+import { FALLBACK_TARGET, WORKING_DAYS_PER_WEEK } from '@/lib/constants'
 
 interface DayOff {
     id: string
@@ -20,6 +21,7 @@ interface DayOff {
 interface UserInfo {
     email: string
     full_name: string
+    asana_name: string
     role: string
 }
 
@@ -29,8 +31,10 @@ interface Target {
     target_points: number
 }
 
-const DEFAULT_TARGET_PER_WEEK = 160
-const WORKING_DAYS_PER_WEEK = 4
+const DEFAULT_TARGET_PER_WEEK = FALLBACK_TARGET
+
+const normalizeName = (name: string) =>
+    name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 
 export default function DayOffsPage() {
     const [currentMonth, setCurrentMonth] = useState(new Date())
@@ -48,6 +52,73 @@ export default function DayOffsPage() {
 
     const isAdmin = user?.role === 'admin' || user?.role === 'lead'
 
+    async function fetchUser() {
+        const { data: { user: authUser } } = await supabase.auth.getUser()
+        if (authUser) {
+            const { data } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', authUser.id)
+                .single()
+            setUser({
+                email: authUser.email || '',
+                full_name: data?.full_name || authUser.email || '',
+                asana_name: data?.asana_name || data?.full_name || authUser.email || '',
+                role: data?.role || 'member'
+            })
+        }
+        setLoading(false)
+    }
+
+    async function fetchMembers() {
+        // Get unique members from tasks
+        const { data: tasks } = await supabase
+            .from('tasks')
+            .select('assignee_name')
+
+        if (tasks) {
+            const uniqueMembers = [...new Set(tasks.map(t => t.assignee_name).filter(Boolean))] as string[]
+            setMembers(uniqueMembers.sort())
+            // If admin, no member selected initially. If member, auto-select own name.
+            if (user?.role === 'member' || user?.role === undefined) {
+                setSelectedMember(user?.asana_name || user?.full_name || '')
+            }
+        }
+
+        // Fetch targets for all members (both creative and graphic)
+        const { data: targets } = await supabase
+            .from('targets')
+            .select('*')
+
+        if (targets && targets.length > 0) {
+            setAllTargets(targets)
+        }
+    }
+
+    async function fetchDayOffs() {
+        if (!user) return
+
+        const startStr = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
+        const endStr = format(endOfMonth(currentMonth), 'yyyy-MM-dd')
+
+        const activeName = isAdmin ? selectedMember : (user.asana_name || user.full_name || '')
+        if (!activeName) return
+        const memberAliases = [...new Set([activeName, user.asana_name, user.full_name].filter(Boolean))]
+
+        // Query by member_name so we get both personal day-offs AND holidays
+        // (holidays have user_email='system@holiday' so filtering by user_email would exclude them)
+        const { data } = await supabase
+            .from('day_offs')
+            .select('*')
+            .in('member_name', memberAliases)
+            .gte('date', startStr)
+            .lte('date', endStr)
+            .order('date', { ascending: true })
+
+        if (data) setDayOffs(data)
+    }
+
+    /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
     useEffect(() => {
         fetchUser()
     }, [])
@@ -63,78 +134,16 @@ export default function DayOffsPage() {
             fetchDayOffs()
         }
     }, [currentMonth, user, selectedMember])
-
-    const fetchUser = async () => {
-        const { data: { user: authUser } } = await supabase.auth.getUser()
-        if (authUser) {
-            const { data } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', authUser.id)
-                .single()
-            setUser({
-                email: authUser.email || '',
-                full_name: data?.full_name || authUser.email || '',
-                role: data?.role || 'member'
-            })
-        }
-        setLoading(false)
-    }
-
-    const fetchMembers = async () => {
-        // Get unique members from tasks
-        const { data: tasks } = await supabase
-            .from('tasks')
-            .select('assignee_name')
-
-        if (tasks) {
-            const uniqueMembers = [...new Set(tasks.map(t => t.assignee_name).filter(Boolean))] as string[]
-            setMembers(uniqueMembers.sort())
-            // If admin, no member selected initially. If member, auto-select own name.
-            if (user?.role === 'member' || user?.role === undefined) {
-                setSelectedMember(user?.full_name || '')
-            }
-        }
-
-        // Fetch targets for all members (both creative and graphic)
-        const { data: targets } = await supabase
-            .from('targets')
-            .select('*')
-
-        if (targets && targets.length > 0) {
-            setAllTargets(targets)
-        }
-    }
-
-    const fetchDayOffs = async () => {
-        if (!user) return
-
-        const startStr = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
-        const endStr = format(endOfMonth(currentMonth), 'yyyy-MM-dd')
-
-        const activeName = isAdmin ? selectedMember : (user.full_name || '')
-        if (!activeName) return
-
-        // Query by member_name so we get both personal day-offs AND holidays
-        // (holidays have user_email='system@holiday' so filtering by user_email would exclude them)
-        const { data } = await supabase
-            .from('day_offs')
-            .select('*')
-            .eq('member_name', activeName)
-            .gte('date', startStr)
-            .lte('date', endStr)
-            .order('date', { ascending: true })
-
-        if (data) setDayOffs(data)
-    }
+    /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
     // Get the target for the selected member for a specific week
     const getMemberWeeklyTarget = (member: string, date?: Date): number => {
+        const memberName = normalizeName(member)
         if (date) {
             // Look up target for the specific week containing this date
             const weekStart = format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd')
             const weekTarget = allTargets.find(t =>
-                t.user_gid === member &&
+                normalizeName(t.user_gid) === memberName &&
                 t.week_start_date === weekStart
             )
             if (weekTarget) return Number(weekTarget.target_points) || DEFAULT_TARGET_PER_WEEK
@@ -144,14 +153,14 @@ export default function DayOffsPage() {
         const monthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
         const monthEnd = format(endOfMonth(currentMonth), 'yyyy-MM-dd')
         const monthTarget = allTargets.find(t =>
-            t.user_gid === member &&
+            normalizeName(t.user_gid) === memberName &&
             t.week_start_date >= monthStart &&
             t.week_start_date <= monthEnd
         )
         if (monthTarget) return Number(monthTarget.target_points) || DEFAULT_TARGET_PER_WEEK
 
         // Fallback: find any target for this member
-        const anyTarget = allTargets.find(t => t.user_gid === member)
+        const anyTarget = allTargets.find(t => normalizeName(t.user_gid) === memberName)
         if (anyTarget) return Number(anyTarget.target_points) || DEFAULT_TARGET_PER_WEEK
 
         return DEFAULT_TARGET_PER_WEEK
@@ -166,7 +175,7 @@ export default function DayOffsPage() {
         return Math.round((getPointsPerDay(member) / 2) * 10) / 10
     }
 
-    const activeMember = isAdmin ? selectedMember : (user?.full_name || '')
+    const activeMember = isAdmin ? selectedMember : (user?.asana_name || user?.full_name || '')
     const ptsPerDay = getPointsPerDay(activeMember)
     const ptsPerHalfDay = getPointsPerHalfDay(activeMember)
     const weeklyTarget = getMemberWeeklyTarget(activeMember)
@@ -221,18 +230,32 @@ export default function DayOffsPage() {
     const calendarDays = eachDayOfInterval({ start: monthStart, end: monthEnd })
     const startDayOfWeek = getDay(monthStart)
     const adjustedStartDay = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1
-
-    // Calculate target reduction — each day off uses its own week's target
-    // Only count working days (Mon-Thu, skip Fri/Sat/Sun)
-    const targetReduction = dayOffs.reduce((sum, d) => {
+    const companyHolidays = dayOffs.filter(d => d.user_email === 'system@holiday')
+    const companyHolidayDates = new Set(companyHolidays.map(d => d.date))
+    const personalDayOffs = dayOffs.filter(d => d.user_email !== 'system@holiday' && !companyHolidayDates.has(d.date))
+    const dayOffsByDate = new Map<string, DayOff>()
+    dayOffs.forEach(dayOff => {
+        const existing = dayOffsByDate.get(dayOff.date)
+        if (!existing || dayOff.user_email === 'system@holiday') {
+            dayOffsByDate.set(dayOff.date, dayOff)
+        }
+    })
+    const targetDayOffs = [...dayOffsByDate.values()]
+    const isTargetWorkday = (date: Date) => {
+        const dayOfWeek = date.getDay()
+        return dayOfWeek !== 0 && dayOfWeek !== 5 && dayOfWeek !== 6
+    }
+    const getDayOffDeduction = (d: DayOff) => {
         const dayDate = new Date(d.date + 'T00:00:00')
-        const dayOfWeek = dayDate.getDay()
-        // Skip weekends (Sat=6, Sun=0)
-        if (dayOfWeek === 0 || dayOfWeek === 6) return sum
+        if (!isTargetWorkday(dayDate)) return 0
         const weekTarget = getMemberWeeklyTarget(activeMember, dayDate)
         const dayPts = Math.round((weekTarget / WORKING_DAYS_PER_WEEK) * 10) / 10
-        return sum + (d.is_half_day ? dayPts / 2 : dayPts)
-    }, 0)
+        return d.is_half_day ? dayPts / 2 : dayPts
+    }
+
+    // Calculate target reduction for personal leave and company holidays.
+    // Company holidays do not count as personal leave in the UI.
+    const targetReduction = targetDayOffs.reduce((sum, d) => sum + getDayOffDeduction(d), 0)
 
     return (
         <DashboardLayout>
@@ -384,7 +407,7 @@ export default function DayOffsPage() {
                                             >
                                                 {format(date, 'd')}
                                                 {isHoliday && (
-                                                    <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full flex items-center justify-center text-[8px] text-white">★</div>
+                                                    <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full flex items-center justify-center text-[8px] text-white">*</div>
                                                 )}
                                                 {dayOff && !isHoliday && (
                                                     <div className={`absolute -top-1 -right-1 w-3 h-3 ${dayOff.is_half_day ? 'bg-orange-500' : 'bg-red-500'} rounded-full`} />
@@ -443,7 +466,11 @@ export default function DayOffsPage() {
                                             <hr className="border-slate-700" />
                                             <div className="flex justify-between text-sm">
                                                 <span className="text-slate-400">Ngày nghỉ tháng này</span>
-                                                <span className="text-yellow-400 font-bold">{dayOffs.length}</span>
+                                                <span className="text-yellow-400 font-bold">{personalDayOffs.length}</span>
+                                            </div>
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-slate-400">Ngày lễ công ty</span>
+                                                <span className="text-red-300 font-bold">{companyHolidays.length}</span>
                                             </div>
                                             <div className="flex justify-between text-sm">
                                                 <span className="text-slate-400">Target giảm</span>
@@ -517,47 +544,50 @@ export default function DayOffsPage() {
                                 <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
                                     <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
                                         <Calendar className="w-4 h-4 text-purple-400" />
-                                        Danh sách ngày nghỉ ({dayOffs.length})
+                                        Danh sách ngày nghỉ ({personalDayOffs.length})
                                     </h3>
 
-                                    {dayOffs.length === 0 ? (
+                                    {targetDayOffs.length === 0 ? (
                                         <p className="text-sm text-slate-500 text-center py-4">
                                             Chưa có ngày nghỉ nào trong tháng
                                         </p>
                                     ) : (
                                         <div className="space-y-2 max-h-80 overflow-y-auto">
-                                            {dayOffs.map(dayOff => {
-                                                const dayPts = dayOff.is_half_day ? ptsPerHalfDay : ptsPerDay
+                                            {targetDayOffs.map(dayOff => {
+                                                const isHoliday = dayOff.user_email === 'system@holiday'
+                                                const dayPts = getDayOffDeduction(dayOff)
                                                 return (
                                                     <div
                                                         key={dayOff.id}
-                                                        className={`flex items-center justify-between p-2.5 rounded-lg ${dayOff.is_half_day ? 'bg-orange-500/10 border border-orange-500/10' : 'bg-red-500/10 border border-red-500/10'}`}
+                                                        className={`flex items-center justify-between p-2.5 rounded-lg ${isHoliday ? 'bg-red-600/10 border border-red-500/20' : dayOff.is_half_day ? 'bg-orange-500/10 border border-orange-500/10' : 'bg-red-500/10 border border-red-500/10'}`}
                                                     >
                                                         <div>
                                                             <p className="text-sm font-medium text-white">
                                                                 {format(new Date(dayOff.date), 'EEEE, dd/MM', { locale: vi })}
-                                                                <span className={`ml-2 text-xs ${dayOff.is_half_day ? 'text-orange-400' : 'text-red-400'}`}>
-                                                                    ({dayOff.is_half_day ? 'Nửa ngày' : 'Cả ngày'} · -{dayPts}đ)
+                                                                <span className={`ml-2 text-xs ${isHoliday ? 'text-red-300' : dayOff.is_half_day ? 'text-orange-400' : 'text-red-400'}`}>
+                                                                    ({isHoliday ? 'Ngày lễ' : dayOff.is_half_day ? 'Nửa ngày' : 'Cả ngày'} · {dayPts > 0 ? `-${dayPts}đ` : 'không trừ target'})
                                                                 </span>
                                                             </p>
                                                             {dayOff.reason && (
                                                                 <p className="text-xs text-slate-400 mt-0.5">{dayOff.reason}</p>
                                                             )}
                                                         </div>
-                                                        <button
-                                                            onClick={() => deleteDayOff(dayOff.id)}
-                                                            className="p-1.5 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors flex-shrink-0"
-                                                            title="Xóa"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
+                                                        {!isHoliday && (
+                                                            <button
+                                                                onClick={() => deleteDayOff(dayOff.id)}
+                                                                className="p-1.5 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors flex-shrink-0"
+                                                                title="Xóa"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 )
                                             })}
                                         </div>
                                     )}
 
-                                    {dayOffs.length > 0 && (
+                                    {targetDayOffs.length > 0 && (
                                         <div className="mt-3 pt-3 border-t border-slate-700 text-center">
                                             <p className="text-xs text-slate-400">
                                                 Tổng giảm: <span className="text-yellow-400 font-bold">-{targetReduction.toFixed(1)}đ</span>

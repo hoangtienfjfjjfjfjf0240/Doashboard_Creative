@@ -113,7 +113,7 @@ export default function DashboardPage() {
             // Fetch day offs
             const { data: dayOffsData } = await supabase
                 .from('day_offs')
-                .select('member_name, date, is_half_day')
+                .select('user_email, member_name, date, is_half_day')
 
             if (dayOffsData) {
                 setDayOffs(dayOffsData)
@@ -326,13 +326,28 @@ export default function DashboardPage() {
                 : [...new Set(doneTasks.map(t => t.assignee_name).filter(Boolean))] as string[]
 
     // Calculate day off deductions per member
-    const currentUserDayOffs = dayOffs.filter(d => {
+    const dayOffsByMemberDate = new Map<string, DayOffEntry>()
+    dayOffs.forEach(d => {
+        if (!d.member_name || !d.date) return
+        const key = `${d.member_name}|${d.date}`
+        const existing = dayOffsByMemberDate.get(key)
+        if (!existing || d.user_email === 'system@holiday') {
+            dayOffsByMemberDate.set(key, d)
+        }
+    })
+
+    const currentUserDayOffs = [...dayOffsByMemberDate.values()].filter(d => {
         if (!d.member_name || !d.date) return false
         const dateStr = d.date
         if (dateStr < dateRangeStartStr || dateStr > dateRangeEndStr) return false
         // Only include day offs for members in this project's target list
         if (selectedAssignees.length > 0) return selectedAssignees.includes(d.member_name)
-        if (user?.role === 'member' && user.fullName) return d.member_name.toLowerCase().trim() === user.fullName.toLowerCase().trim()
+        if (user?.role === 'member') {
+            const dayOffName = normalizeName(d.member_name)
+            const userAsanaName = normalizeName(user.asanaName || '')
+            const userFullName = normalizeName(user.fullName || '')
+            return dayOffName === userAsanaName || dayOffName === userFullName
+        }
         return targetMembers.includes(d.member_name)
     })
 
@@ -343,7 +358,7 @@ export default function DashboardPage() {
         const date = new Date(d.date + 'T00:00:00')
         // Skip weekends (Sat=6, Sun=0)
         const dow = date.getDay()
-        if (dow === 0 || dow === 6) return
+        if (dow === 0 || dow === 5 || dow === 6) return
         const weekNum = getWeek(date, { weekStartsOn: 1 })
         const weekStart = format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd')
         const memberTarget = getTargetForMemberWeek(d.member_name || '', weekStart)
