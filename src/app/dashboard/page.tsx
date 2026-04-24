@@ -17,7 +17,7 @@ import {
     CTSTChart,
 } from '@/components/dashboard'
 import type { Task, Target, DayOffEntry } from '@/lib/types'
-import { CREATIVE_POINT_CONFIG, WORKING_DAYS_PER_WEEK, FALLBACK_TARGET, TOTAL_WEEKS } from '@/lib/constants'
+import { CREATIVE_POINT_CONFIG, WORKING_DAYS_PER_WEEK, FALLBACK_TARGET, TOTAL_WEEKS, isTargetDeductionDay } from '@/lib/constants'
 
 export default function DashboardPage() {
     const router = useRouter()
@@ -356,9 +356,7 @@ export default function DashboardPage() {
     let totalDayOffDeduction = 0
     currentUserDayOffs.forEach(d => {
         const date = new Date(d.date + 'T00:00:00')
-        // Skip weekends (Sat=6, Sun=0)
-        const dow = date.getDay()
-        if (dow === 0 || dow === 5 || dow === 6) return
+        if (!isTargetDeductionDay(date)) return
         const weekNum = getWeek(date, { weekStartsOn: 1 })
         const weekStart = format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd')
         const memberTarget = getTargetForMemberWeek(d.member_name || '', weekStart)
@@ -484,6 +482,7 @@ export default function DashboardPage() {
             if (d.member_name === name) {
                 const date = new Date(d.date)
                 if (date.getFullYear() === 2026 && date.getMonth() >= 1) {
+                    if (!isTargetDeductionDay(date)) return
                     const weekNum = getWeek(date, { weekStartsOn: 1 })
                     const ptsPerDay = memberOwnTarget / WORKING_DAYS_PER_WEEK
                     const deduction = d.is_half_day ? ptsPerDay / 2 : ptsPerDay

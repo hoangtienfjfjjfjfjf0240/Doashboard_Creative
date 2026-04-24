@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Save, Target, ChevronDown, CalendarOff, Filter, Calendar, LayoutGrid } from 'lucide-react'
 import { format, startOfWeek, addWeeks, getWeek, getMonth } from 'date-fns'
 import DashboardLayout from '@/components/DashboardLayout'
-import { CREATIVE_POINT_CONFIG, WORKING_DAYS_PER_WEEK } from '@/lib/constants'
+import { CREATIVE_POINT_CONFIG, WORKING_DAYS_PER_WEEK, isTargetDeductionDay } from '@/lib/constants'
 
 interface DayOffDetail {
     date: string
@@ -249,8 +249,7 @@ export default function SettingsPage() {
                     if (date.getFullYear() !== 2026) return
 
                     // Skip weekends (Sat=6, Sun=0) — Mon-Fri are working days
-                    const dayOfWeek = date.getDay()
-                    if (dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6) return
+                    if (!isTargetDeductionDay(date)) return
 
                     const weekNum = getWeek(date, { weekStartsOn: 1 })
 

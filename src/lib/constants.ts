@@ -36,8 +36,13 @@ export const DESIGN_POINT_CONFIG: Record<string, number> = {
 /** All creative video type keys */
 export const VIDEO_TYPES = Object.keys(CREATIVE_POINT_CONFIG)
 
-/** Working days per week (Mon–Thu, excluding Fri) */
+/** Weekly target divisor */
 export const WORKING_DAYS_PER_WEEK = 4
+
+export function isTargetDeductionDay(date: Date): boolean {
+    const dayOfWeek = date.getDay()
+    return dayOfWeek !== 0 && dayOfWeek !== 6
+}
 
 /** Default fallback target points per member per week */
 export const FALLBACK_TARGET = 160

@@ -6,7 +6,7 @@ import { vi } from 'date-fns/locale'
 import { Calendar, Plus, Loader2, ChevronLeft, ChevronRight, Trash2, Users, User } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import DashboardLayout from '@/components/DashboardLayout'
-import { FALLBACK_TARGET, WORKING_DAYS_PER_WEEK } from '@/lib/constants'
+import { FALLBACK_TARGET, WORKING_DAYS_PER_WEEK, isTargetDeductionDay } from '@/lib/constants'
 
 interface DayOff {
     id: string
@@ -241,13 +241,9 @@ export default function DayOffsPage() {
         }
     })
     const targetDayOffs = [...dayOffsByDate.values()]
-    const isTargetWorkday = (date: Date) => {
-        const dayOfWeek = date.getDay()
-        return dayOfWeek !== 0 && dayOfWeek !== 5 && dayOfWeek !== 6
-    }
     const getDayOffDeduction = (d: DayOff) => {
         const dayDate = new Date(d.date + 'T00:00:00')
-        if (!isTargetWorkday(dayDate)) return 0
+        if (!isTargetDeductionDay(dayDate)) return 0
         const weekTarget = getMemberWeeklyTarget(activeMember, dayDate)
         const dayPts = Math.round((weekTarget / WORKING_DAYS_PER_WEEK) * 10) / 10
         return d.is_half_day ? dayPts / 2 : dayPts
