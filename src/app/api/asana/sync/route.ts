@@ -29,6 +29,68 @@ interface AsanaTask {
 
 type ProjectType = 'creative' | 'graphic'
 
+interface ExistingTask {
+    asana_id: string
+    due_date: string | null
+    name: string
+    assignee_name: string | null
+    status: string
+}
+
+const PAGE_SIZE = 1000
+
+function normalizeFieldName(value: string): string {
+    return value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim()
+}
+
+function matchesFieldName(fieldName: string, aliases: string[]): boolean {
+    const normalizedName = normalizeFieldName(fieldName)
+    return aliases.some(alias => {
+        const normalizedAlias = normalizeFieldName(alias)
+        return normalizedName === normalizedAlias || normalizedName.includes(normalizedAlias)
+    })
+}
+
+function findCustomField(task: AsanaTask, aliases: string[]) {
+    return task.custom_fields?.find(field => matchesFieldName(field.name, aliases))
+}
+
+function parseNumber(value: number | string | null | undefined): number | null {
+    if (value === null || value === undefined || value === '') return null
+    const parsed = typeof value === 'number' ? value : Number(value.replace(/,/g, ''))
+    return Number.isFinite(parsed) ? parsed : null
+}
+
+async function fetchExistingTasks(projectType: ProjectType): Promise<ExistingTask[]> {
+    const allTasks: ExistingTask[] = []
+    let from = 0
+
+    while (true) {
+        const { data, error } = await supabase
+            .from('tasks')
+            .select('asana_id, due_date, name, assignee_name, status')
+            .eq('project_type', projectType)
+            .range(from, from + PAGE_SIZE - 1)
+
+        if (error) {
+            throw new Error(`Supabase existing tasks fetch failed: ${error.message}`)
+        }
+
+        const page = (data || []) as ExistingTask[]
+        allTasks.push(...page)
+
+        if (page.length < PAGE_SIZE) break
+        from += PAGE_SIZE
+    }
+
+    return allTasks
+}
+
 function getProjectConfig(projectType: ProjectType) {
     if (projectType === 'graphic') {
         return {
@@ -99,16 +161,11 @@ async function syncProject(projectType: ProjectType): Promise<{ processed: numbe
     console.log(`[Sync ${projectType}] Fetched ${asanaTasks.length} tasks from Asana in ${Date.now() - fetchStart}ms`)
 
     // ── Step 1: Fetch ALL existing tasks in ONE batch query ──
-    const { data: existingTasksData } = await supabase
-        .from('tasks')
-        .select('asana_id, due_date, name, assignee_name, status')
-        .eq('project_type', projectType)
+    const existingTasksData = await fetchExistingTasks(projectType)
 
     // Build a lookup map for O(1) access
-    const existingMap = new Map<string, { due_date: string | null; name: string; assignee_name: string | null; status: string }>()
-    if (existingTasksData) {
-        existingTasksData.forEach(t => existingMap.set(t.asana_id, t))
-    }
+    const existingMap = new Map<string, ExistingTask>()
+    existingTasksData.forEach(t => existingMap.set(t.asana_id, t))
 
     // ── Step 2: Transform all Asana tasks in memory ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -117,24 +174,15 @@ async function syncProject(projectType: ProjectType): Promise<{ processed: numbe
     const dueDateChanges: any[] = []
 
     for (const task of asanaTasks) {
-        const typeField = task.custom_fields?.find(f => {
-            const name = f.name.toLowerCase()
-            return config.typeFieldNames.some(tf => name.includes(tf) || name === tf)
-        })
+        const typeField = findCustomField(task, [...config.typeFieldNames, 'asset', 'loai asset', 'video type'])
         const videoType = typeField?.enum_value?.name || typeField?.display_value || null
 
-        const quantityField = task.custom_fields?.find(f => {
-            const name = f.name.toLowerCase()
-            return config.quantityFieldNames.some(qf => name.includes(qf) || name === qf)
-        })
-        const videoCount = Math.max(1, quantityField?.number_value || 1)
+        const quantityField = findCustomField(task, [...config.quantityFieldNames, 'so luong', 'video count'])
+        const videoCount = Math.max(1, parseNumber(quantityField?.number_value ?? quantityField?.display_value) ?? 1)
 
         let ctst: string | null = null
         if (config.hasCTST) {
-            const ctstField = task.custom_fields?.find(
-                f => f.name.toLowerCase() === 'ctst' ||
-                    f.name.toLowerCase().includes('creative tool')
-            )
+            const ctstField = findCustomField(task, ['ctst', 'creative tool'])
             ctst = ctstField?.enum_value?.name || ctstField?.display_value || null
         }
 
@@ -146,7 +194,8 @@ async function syncProject(projectType: ProjectType): Promise<{ processed: numbe
         const progressValue = progressField?.enum_value?.name?.toLowerCase() ||
             progressField?.display_value?.toLowerCase() || ''
         const isProgressDone = progressValue === 'done' || progressValue === 'hoàn thành'
-        const isDone = task.completed || isProgressDone
+        const normalizedProgressValue = normalizeFieldName(progressField?.enum_value?.name || progressField?.display_value || '')
+        const isDone = task.completed || isProgressDone || normalizedProgressValue === 'done' || normalizedProgressValue === 'hoan thanh'
 
         let completedAt = task.completed_at
         if (!completedAt && isDone) {
@@ -157,7 +206,12 @@ async function syncProject(projectType: ProjectType): Promise<{ processed: numbe
             completedAt = completedDateField?.display_value || new Date().toISOString()
         }
 
-        const points = videoType ? (config.pointConfig[videoType] || 0) * videoCount : 0
+        const pointBaseField = projectType === 'graphic' ? findCustomField(task, ['point base']) : undefined
+        const pointBase = parseNumber(pointBaseField?.number_value ?? pointBaseField?.display_value)
+        const unitPoint = projectType === 'graphic' && pointBase !== null
+            ? pointBase
+            : videoType ? (config.pointConfig[videoType] || 0) : 0
+        const points = unitPoint * videoCount
 
         const taskData = {
             asana_id: task.gid,

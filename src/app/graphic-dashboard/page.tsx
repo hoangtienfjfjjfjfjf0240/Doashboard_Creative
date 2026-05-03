@@ -17,6 +17,9 @@ import {
 } from '@/components/dashboard'
 import type { Task, Target, DayOffEntry } from '@/lib/types'
 import { DESIGN_POINT_CONFIG, WORKING_DAYS_PER_WEEK, FALLBACK_TARGET, TOTAL_WEEKS, isTargetDeductionDay } from '@/lib/constants'
+import { fetchProjectTasks } from '@/lib/supabase/fetch-project-tasks'
+
+const ASANA_SYNC_INTERVAL_MS = 2 * 60 * 1000
 
 export default function GraphicDashboardPage() {
     const router = useRouter()
@@ -26,6 +29,7 @@ export default function GraphicDashboardPage() {
     const [loading, setLoading] = useState(true)
     const [syncing, setSyncing] = useState(false)
     const initialLoadDone = useRef(false)
+    const initialSyncDone = useRef(false)
     const [lastSync, setLastSync] = useState<string>()
     const [user, setUser] = useState<{ email: string; role: string; roleGraphic: string; fullName: string; asanaEmail: string; asanaName: string } | null>(null)
 
@@ -85,11 +89,7 @@ export default function GraphicDashboardPage() {
         }
         try {
             // Select only needed columns — exclude raw_data
-            const { data: tasks, error: tasksError } = await supabase
-                .from('tasks')
-                .select('id, asana_id, name, description, assignee_name, assignee_email, video_type, video_count, points, due_date, completed_at, status, tags, ctst, project_type, updated_at')
-                .eq('project_type', 'graphic')
-                .order('updated_at', { ascending: false })
+            const { data: tasks, error: tasksError } = await fetchProjectTasks(supabase, 'graphic')
 
             if (tasksError) console.error('Tasks fetch error:', tasksError)
 
@@ -149,12 +149,13 @@ export default function GraphicDashboardPage() {
 
     useEffect(() => {
         const autoSync = async () => {
-            if (!loading && allTasks.length === 0 && !syncing) {
+            if (!loading && !syncing && !initialSyncDone.current) {
+                initialSyncDone.current = true
                 await handleSync()
             }
         }
         autoSync()
-    }, [loading, allTasks.length])
+    }, [loading, syncing])
 
     // Auto-sync every 5 minutes (client-side)
     useEffect(() => {
@@ -162,7 +163,7 @@ export default function GraphicDashboardPage() {
             if (!syncing) {
                 handleSync()
             }
-        }, 5 * 60 * 1000)
+        }, ASANA_SYNC_INTERVAL_MS)
         return () => clearInterval(interval)
     }, [syncing])
 
