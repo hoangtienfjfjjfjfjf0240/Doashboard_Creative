@@ -232,7 +232,10 @@ export default function GraphicDashboardPage() {
             const nameMatch = (taskAssigneeName && (taskAssigneeName === userAsanaName || taskAssigneeName === userFullName))
             if (!emailMatch && !nameMatch) return false
         }
-        if (selectedAssignees.length > 0 && !selectedAssignees.includes(task.assignee_name || '')) return false
+        if (selectedAssignees.length > 0) {
+            const selectedAssigneeNames = selectedAssignees.map(normalizeName)
+            if (!selectedAssigneeNames.includes(normalizeName(task.assignee_name || ''))) return false
+        }
         if (selectedVideoTypes.length > 0 && !selectedVideoTypes.includes(task.video_type || '')) return false
         if (status === 'done' && task.status !== 'done') return false
         if (status === 'not_done' && task.status !== 'not_done') return false
@@ -278,7 +281,13 @@ export default function GraphicDashboardPage() {
     const distinctWeekStarts = allWeekStarts.length > numWeeks ? allWeekStarts.slice(-numWeeks) : allWeekStarts
 
     // Normalize names for comparison (strip diacritics + lowercase)
-    const normalizeName = (name: string) => name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+    const normalizeName = (name: string) =>
+        name
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, '')
+            .toLowerCase()
+            .trim()
 
     // Get target for a specific member for a specific week
     const getTargetForMemberWeek = (memberName: string, weekStartStr: string): number => {
@@ -322,7 +331,10 @@ export default function GraphicDashboardPage() {
         const dateStr = d.date
         if (dateStr < dateRangeStartStr || dateStr > dateRangeEndStr) return false
         // Only include day offs for members in this project's target list
-        if (selectedAssignees.length > 0) return selectedAssignees.includes(d.member_name)
+        if (selectedAssignees.length > 0) {
+            const selectedAssigneeNames = selectedAssignees.map(normalizeName)
+            return selectedAssigneeNames.includes(normalizeName(d.member_name))
+        }
         if (user?.roleGraphic === 'member' || user?.role === 'member') {
             const dayOffName = normalizeName(d.member_name)
             const userAsanaName = normalizeName(user.asanaName || '')
@@ -385,7 +397,8 @@ export default function GraphicDashboardPage() {
     const allDoneTasks = allTasks.filter(t => t.status === 'done')
     const currentWeekNum = getWeek(new Date(), { weekStartsOn: 1 })
     const leaderboardData = allAssigneeNames.map(name => {
-        const memberAllDone = allDoneTasks.filter(t => t.assignee_name === name)
+        const normalizedName = normalizeName(name)
+        const memberAllDone = allDoneTasks.filter(t => normalizeName(t.assignee_name || '') === normalizedName)
         const totalPoints = memberAllDone.reduce((sum, t) => sum + (t.points || 0), 0)
 
         // Use this member's own target (not filter-dependent)
@@ -405,7 +418,7 @@ export default function GraphicDashboardPage() {
 
         const memberDayOffsByWeek: Record<number, number> = {}
         dayOffs.forEach(d => {
-            if (d.member_name === name) {
+            if (normalizeName(d.member_name || '') === normalizedName) {
                 const date = new Date(d.date)
                 if (date.getFullYear() === 2026 && date.getMonth() >= 1) {
                     if (!isTargetDeductionDay(date)) return
