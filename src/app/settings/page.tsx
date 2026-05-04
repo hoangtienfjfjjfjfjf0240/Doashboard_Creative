@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { fetchAllPages } from '@/lib/supabase/fetchAllPages'
 import { Save, Target, ChevronDown, CalendarOff, Filter, Calendar, LayoutGrid } from 'lucide-react'
 import { format, startOfWeek, addWeeks, getWeek, getMonth } from 'date-fns'
 import DashboardLayout from '@/components/DashboardLayout'
@@ -205,10 +206,25 @@ export default function SettingsPage() {
             setAssignees(memberNames)
 
             // Fetch all tasks
-            const { data: tasks, error: tasksError } = await supabase
-                .from('tasks')
-                .select('id, assignee_name, assignee_email, video_type, video_count, points, due_date, completed_at, status, project_type')
-                .eq('project_type', 'creative')
+            const tasks = await fetchAllPages<{
+                id: string
+                assignee_name: string | null
+                assignee_email: string | null
+                video_type: string | null
+                video_count: number
+                points: number
+                due_date: string | null
+                completed_at: string | null
+                status: string
+                project_type: string | null
+            }>((from, to) =>
+                supabase
+                    .from('tasks')
+                    .select('id, assignee_name, assignee_email, video_type, video_count, points, due_date, completed_at, status, project_type')
+                    .eq('project_type', 'creative')
+                    .order('id', { ascending: true })
+                    .range(from, to)
+            )
 
 
 
@@ -304,34 +320,32 @@ export default function SettingsPage() {
 
             // Calculate actual points from completed tasks
             // Use due_date for week grouping (consistent with dashboard overview)
-            if (tasks) {
-                tasks.forEach(task => {
-                    if (!task.assignee_name) return
-                    if (task.status !== 'done') return
-                    if (user.role === 'member' && task.assignee_name !== user.asanaName && task.assignee_name !== user.fullName) return
+            tasks.forEach(task => {
+                if (!task.assignee_name) return
+                if (task.status !== 'done') return
+                if (user.role === 'member' && task.assignee_name !== user.asanaName && task.assignee_name !== user.fullName) return
 
-                    // Use due_date to determine which week the task belongs to
-                    // This matches the dashboard overview logic
-                    const taskDate = task.due_date ? new Date(task.due_date) : null
+                // Use due_date to determine which week the task belongs to
+                // This matches the dashboard overview logic
+                const taskDate = task.due_date ? new Date(task.due_date) : null
 
-                    if (!taskDate) return
+                if (!taskDate) return
 
-                    const year = taskDate.getFullYear()
-                    const month = taskDate.getMonth()
+                const year = taskDate.getFullYear()
+                const month = taskDate.getMonth()
 
-                    if (year !== 2026) return
-                    if (month < 1) return
+                if (year !== 2026) return
+                if (month < 1) return
 
-                    const weekNum = getWeek(taskDate, { weekStartsOn: 1 })
-                    const points = task.points || 0
+                const weekNum = getWeek(taskDate, { weekStartsOn: 1 })
+                const points = task.points || 0
 
-                    if (!actualPointsMap[task.assignee_name]) {
-                        actualPointsMap[task.assignee_name] = {}
-                    }
-                    actualPointsMap[task.assignee_name][weekNum] =
-                        (actualPointsMap[task.assignee_name][weekNum] || 0) + points
-                })
-            }
+                if (!actualPointsMap[task.assignee_name]) {
+                    actualPointsMap[task.assignee_name] = {}
+                }
+                actualPointsMap[task.assignee_name][weekNum] =
+                    (actualPointsMap[task.assignee_name][weekNum] || 0) + points
+            })
 
             const targetsArray = memberNames.map(name => ({
                 assignee_name: name,

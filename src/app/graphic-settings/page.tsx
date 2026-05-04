@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { fetchAllPages } from '@/lib/supabase/fetchAllPages'
 import { Save, Target, ChevronDown, CalendarOff, Filter, Calendar, LayoutGrid } from 'lucide-react'
 import { format, startOfWeek, addWeeks, getWeek, getMonth } from 'date-fns'
 import DashboardLayout from '@/components/DashboardLayout'
@@ -161,10 +162,25 @@ export default function GraphicSettingsPage() {
                 setAssignees(memberNames)
 
                 // Fetch graphic tasks
-                const { data: tasks } = await supabase
-                    .from('tasks')
-                    .select('id, assignee_name, assignee_email, video_type, video_count, points, due_date, completed_at, status, project_type')
-                    .eq('project_type', 'graphic')
+                const tasks = await fetchAllPages<{
+                    id: string
+                    assignee_name: string | null
+                    assignee_email: string | null
+                    video_type: string | null
+                    video_count: number
+                    points: number
+                    due_date: string | null
+                    completed_at: string | null
+                    status: string
+                    project_type: string | null
+                }>((from, to) =>
+                    supabase
+                        .from('tasks')
+                        .select('id, assignee_name, assignee_email, video_type, video_count, points, due_date, completed_at, status, project_type')
+                        .eq('project_type', 'graphic')
+                        .order('id', { ascending: true })
+                        .range(from, to)
+                )
                 // Fetch existing graphic targets
                 const { data: existingTargets } = await supabase
                     .from('targets')
@@ -235,18 +251,16 @@ export default function GraphicSettingsPage() {
                     })
                 }
 
-                if (tasks) {
-                    tasks.forEach(task => {
-                        if (!task.assignee_name || task.status !== 'done') return
-                        // Use due_date for week grouping (consistent with dashboard overview)
-                        const taskDate = task.due_date ? new Date(task.due_date) : null
-                        if (!taskDate) return
-                        if (taskDate.getFullYear() !== 2026 || taskDate.getMonth() < 1) return
-                        const weekNum = getWeek(taskDate, { weekStartsOn: 1 })
-                        if (!actualPointsMap[task.assignee_name]) actualPointsMap[task.assignee_name] = {}
-                        actualPointsMap[task.assignee_name][weekNum] = (actualPointsMap[task.assignee_name][weekNum] || 0) + (task.points || 0)
-                    })
-                }
+                tasks.forEach(task => {
+                    if (!task.assignee_name || task.status !== 'done') return
+                    // Use due_date for week grouping (consistent with dashboard overview)
+                    const taskDate = task.due_date ? new Date(task.due_date) : null
+                    if (!taskDate) return
+                    if (taskDate.getFullYear() !== 2026 || taskDate.getMonth() < 1) return
+                    const weekNum = getWeek(taskDate, { weekStartsOn: 1 })
+                    if (!actualPointsMap[task.assignee_name]) actualPointsMap[task.assignee_name] = {}
+                    actualPointsMap[task.assignee_name][weekNum] = (actualPointsMap[task.assignee_name][weekNum] || 0) + (task.points || 0)
+                })
 
                 setTargets(memberNames.map(name => ({
                     assignee_name: name,

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { startOfWeek, format, addDays, subDays, getWeek } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
+import { fetchAllPages } from '@/lib/supabase/fetchAllPages'
 import { LogOut } from 'lucide-react'
 import DashboardLayout from '@/components/DashboardLayout'
 import {
@@ -117,19 +118,19 @@ export default function GraphicDashboardPage() {
                 return
             }
             // Select only needed columns — exclude raw_data
-            const { data: tasks, error: tasksError } = await supabase
-                .from('tasks')
-                .select('id, asana_id, name, description, assignee_name, assignee_email, video_type, video_count, points, due_date, completed_at, status, tags, ctst, project_type, updated_at')
-                .eq('project_type', 'graphic')
-                .order('updated_at', { ascending: false })
+            const tasks = await fetchAllPages<Task>((from, to) =>
+                supabase
+                    .from('tasks')
+                    .select('id, asana_id, name, description, assignee_name, assignee_email, video_type, video_count, points, due_date, completed_at, status, tags, ctst, project_type, updated_at')
+                    .eq('project_type', 'graphic')
+                    .order('updated_at', { ascending: false })
+                    .order('id', { ascending: false })
+                    .range(from, to)
+            )
 
-            if (tasksError) console.error('Tasks fetch error:', tasksError)
-
-            if (tasks) {
-                setAllTasks(tasks)
-                const uniqueAssignees = [...new Set(tasks.map(t => t.assignee_name).filter(Boolean))] as string[]
-                setAssignees(uniqueAssignees.sort())
-            }
+            setAllTasks(tasks)
+            const uniqueAssignees = [...new Set(tasks.map(t => t.assignee_name).filter(Boolean))] as string[]
+            setAssignees(uniqueAssignees.sort())
 
             const { data: targetsData } = await supabase
                 .from('targets')
