@@ -99,6 +99,8 @@ export default function SettingsPage() {
     const defaultTargetRef = useRef(defaultTarget)
     defaultTargetRef.current = defaultTarget
     const initialLoadDone = useRef(false)
+    const syncRetryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const fetchDataRef = useRef<() => Promise<void>>(async () => { })
 
     const weeks2026 = useMemo(() => getWeeksOf2026(), [])
     const currentWeekNum = getWeek(new Date(), { weekStartsOn: 1 })
@@ -144,7 +146,24 @@ export default function SettingsPage() {
         if (!initialLoadDone.current) {
             setLoading(true)
         }
+        let skippedForRunningSync = false
         try {
+            const { data: latestSync } = await supabase
+                .from('sync_logs')
+                .select('status')
+                .order('started_at', { ascending: false })
+                .limit(1)
+                .maybeSingle()
+
+            if (latestSync?.status === 'running') {
+                skippedForRunningSync = true
+                if (syncRetryTimeoutRef.current) clearTimeout(syncRetryTimeoutRef.current)
+                syncRetryTimeoutRef.current = setTimeout(() => {
+                    fetchDataRef.current()
+                }, 2500)
+                return
+            }
+
             // Fetch ALL profiles to build member list (not from tasks)
             // Include role_creative to filter only creative team members
             const { data: allProfiles } = await supabase
@@ -327,10 +346,14 @@ export default function SettingsPage() {
         } catch (error) {
             console.error('Error fetching data:', error)
         } finally {
-            setLoading(false)
-            initialLoadDone.current = true
+            if (!skippedForRunningSync) {
+                setLoading(false)
+                initialLoadDone.current = true
+            }
         }
     }, [user, supabase])
+
+    fetchDataRef.current = fetchData
 
     useEffect(() => {
         fetchData()
@@ -357,10 +380,20 @@ export default function SettingsPage() {
                     }, 2000)
                 }
             )
+            .on('postgres_changes',
+                { event: '*', schema: 'public', table: 'sync_logs' },
+                () => {
+                    if (timeoutId) clearTimeout(timeoutId)
+                    timeoutId = setTimeout(() => {
+                        fetchDataRef.current()
+                    }, 1000)
+                }
+            )
             .subscribe()
 
         return () => {
             if (timeoutId) clearTimeout(timeoutId)
+            if (syncRetryTimeoutRef.current) clearTimeout(syncRetryTimeoutRef.current)
             supabase.removeChannel(channel)
         }
     }, [supabase, user, fetchData])

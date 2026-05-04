@@ -28,6 +28,7 @@ export default function DashboardPage() {
     const [syncing, setSyncing] = useState(false)
     const initialLoadDone = useRef(false)
     const syncInFlightRef = useRef(false)
+    const syncRetryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const [lastSync, setLastSync] = useState<string>()
     const [user, setUser] = useState<{ email: string; role: string; fullName: string; asanaEmail: string; asanaName: string } | null>(null)
 
@@ -52,6 +53,7 @@ export default function DashboardPage() {
     const [targets, setTargets] = useState<Target[]>([])
     const [dayOffs, setDayOffs] = useState<DayOffEntry[]>([])
     const [dueDateChanges, setDueDateChanges] = useState<{ task_id: string; old_due_date: string | null; new_due_date: string | null; changed_at: string }[]>([])
+    const fetchDataRef = useRef<(isRealtimeRefresh?: boolean) => Promise<void>>(async () => { })
 
     function normalizeName(name: string) {
         return name
@@ -95,7 +97,27 @@ export default function DashboardPage() {
         if (!isRealtimeRefresh && !initialLoadDone.current) {
             setLoading(true)
         }
+        let skippedForRunningSync = false
         try {
+            const { data: latestSync } = await supabase
+                .from('sync_logs')
+                .select('started_at, status')
+                .order('started_at', { ascending: false })
+                .limit(1)
+                .maybeSingle()
+
+            if (latestSync?.started_at) {
+                setLastSync(latestSync.started_at)
+            }
+
+            if (latestSync?.status === 'running') {
+                skippedForRunningSync = true
+                if (syncRetryTimeoutRef.current) clearTimeout(syncRetryTimeoutRef.current)
+                syncRetryTimeoutRef.current = setTimeout(() => {
+                    fetchDataRef.current(true)
+                }, 2500)
+                return
+            }
             // Select only needed columns — exclude raw_data to reduce payload ~10-20x
             const { data: tasks, error: tasksError } = await supabase
                 .from('tasks')
@@ -139,22 +161,17 @@ export default function DashboardPage() {
                 setDueDateChanges(changesData)
             }
 
-            const { data: syncLogs } = await supabase
-                .from('sync_logs')
-                .select('started_at')
-                .order('started_at', { ascending: false })
-                .limit(1)
-
-            if (syncLogs?.[0]) {
-                setLastSync(syncLogs[0].started_at)
-            }
         } catch (error) {
             console.error('Error fetching data:', error)
         } finally {
-            setLoading(false)
-            initialLoadDone.current = true
+            if (!skippedForRunningSync) {
+                setLoading(false)
+                initialLoadDone.current = true
+            }
         }
     }, [supabase, weekStart, dateRange])
+
+    fetchDataRef.current = fetchData
 
     useEffect(() => {
         fetchData()
@@ -186,8 +203,6 @@ export default function DashboardPage() {
     // Supabase Realtime: auto-refresh dashboard when tasks/targets change
     // Skip refresh if we just triggered a sync (to prevent double-fetch)
     const justSyncedRef = useRef(false)
-    const fetchDataRef = useRef(fetchData)
-    fetchDataRef.current = fetchData
 
     useEffect(() => {
         let timeoutId: NodeJS.Timeout | null = null
@@ -211,10 +226,18 @@ export default function DashboardPage() {
                     timeoutId = setTimeout(() => fetchDataRef.current(true), 5000)
                 }
             )
+            .on('postgres_changes',
+                { event: '*', schema: 'public', table: 'sync_logs' },
+                () => {
+                    if (timeoutId) clearTimeout(timeoutId)
+                    timeoutId = setTimeout(() => fetchDataRef.current(true), 1000)
+                }
+            )
             .subscribe()
 
         return () => {
             if (timeoutId) clearTimeout(timeoutId)
+            if (syncRetryTimeoutRef.current) clearTimeout(syncRetryTimeoutRef.current)
             supabase.removeChannel(channel)
         }
     }, [supabase]) // stable dependency — no fetchData here
