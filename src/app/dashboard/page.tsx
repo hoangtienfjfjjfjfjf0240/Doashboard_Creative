@@ -27,6 +27,7 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true)
     const [syncing, setSyncing] = useState(false)
     const initialLoadDone = useRef(false)
+    const syncInFlightRef = useRef(false)
     const [lastSync, setLastSync] = useState<string>()
     const [user, setUser] = useState<{ email: string; role: string; fullName: string; asanaEmail: string; asanaName: string } | null>(null)
 
@@ -150,25 +151,16 @@ export default function DashboardPage() {
         fetchData()
     }, [fetchData])
 
-    useEffect(() => {
-        const autoSync = async () => {
-            if (!loading && allTasks.length === 0 && !syncing) {
-                await handleSync()
-            }
-        }
-        autoSync()
-    }, [loading, allTasks.length])
-
     // Auto-sync every 5 minutes (client-side, since Vercel Hobby cron is limited to 1x/day)
     useEffect(() => {
         const interval = setInterval(() => {
-            if (!syncing) {
+            if (!syncInFlightRef.current) {
                 console.log('[Auto-sync] Triggering periodic sync...')
                 handleSync()
             }
         }, 5 * 60 * 1000) // 5 minutes
         return () => clearInterval(interval)
-    }, [syncing])
+    }, [])
 
     // Supabase Realtime: auto-refresh dashboard when tasks/targets change
     // Skip refresh if we just triggered a sync (to prevent double-fetch)
@@ -207,6 +199,8 @@ export default function DashboardPage() {
     }, [supabase]) // stable dependency — no fetchData here
 
     const handleSync = async () => {
+        if (syncInFlightRef.current) return
+        syncInFlightRef.current = true
         setSyncing(true)
         justSyncedRef.current = true
         try {
@@ -216,6 +210,7 @@ export default function DashboardPage() {
             }
         } finally {
             setSyncing(false)
+            syncInFlightRef.current = false
             // Allow Realtime to work again after a short delay
             setTimeout(() => { justSyncedRef.current = false }, 5000)
         }

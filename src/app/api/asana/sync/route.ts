@@ -245,6 +245,7 @@ async function syncProject(projectType: ProjectType): Promise<{ processed: numbe
 
 export async function POST(request: NextRequest) {
     const startTime = new Date()
+    const staleThreshold = new Date(startTime.getTime() - 5 * 60 * 1000).toISOString()
 
     // Determine which project(s) to sync
     const { searchParams } = new URL(request.url)
@@ -254,6 +255,24 @@ export async function POST(request: NextRequest) {
         : projectParam === 'creative'
             ? ['creative']
             : ['creative', 'graphic'] // default: sync both
+
+    const { data: runningSync } = await supabase
+        .from('sync_logs')
+        .select('id, started_at, status')
+        .eq('status', 'running')
+        .gte('started_at', staleThreshold)
+        .order('started_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+    if (runningSync) {
+        return NextResponse.json({
+            success: true,
+            skipped: true,
+            reason: 'Sync already running',
+            startedAt: runningSync.started_at,
+        })
+    }
 
     // Create sync log (optional - don't block sync if this fails)
     const { data: syncLog } = await supabase

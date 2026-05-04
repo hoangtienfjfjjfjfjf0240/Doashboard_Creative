@@ -26,6 +26,7 @@ export default function GraphicDashboardPage() {
     const [loading, setLoading] = useState(true)
     const [syncing, setSyncing] = useState(false)
     const initialLoadDone = useRef(false)
+    const syncInFlightRef = useRef(false)
     const [lastSync, setLastSync] = useState<string>()
     const [user, setUser] = useState<{ email: string; role: string; roleGraphic: string; fullName: string; asanaEmail: string; asanaName: string } | null>(null)
 
@@ -147,24 +148,15 @@ export default function GraphicDashboardPage() {
         fetchData()
     }, [fetchData])
 
-    useEffect(() => {
-        const autoSync = async () => {
-            if (!loading && allTasks.length === 0 && !syncing) {
-                await handleSync()
-            }
-        }
-        autoSync()
-    }, [loading, allTasks.length])
-
     // Auto-sync every 5 minutes (client-side)
     useEffect(() => {
         const interval = setInterval(() => {
-            if (!syncing) {
+            if (!syncInFlightRef.current) {
                 handleSync()
             }
         }, 5 * 60 * 1000)
         return () => clearInterval(interval)
-    }, [syncing])
+    }, [])
 
     // Supabase Realtime: auto-refresh dashboard when tasks/targets change
     // Skip refresh if we just triggered a sync (to prevent double-fetch)
@@ -202,6 +194,8 @@ export default function GraphicDashboardPage() {
     }, [supabase]) // stable dependency — no fetchData here
 
     const handleSync = async () => {
+        if (syncInFlightRef.current) return
+        syncInFlightRef.current = true
         setSyncing(true)
         justSyncedRef.current = true
         try {
@@ -211,6 +205,7 @@ export default function GraphicDashboardPage() {
             }
         } finally {
             setSyncing(false)
+            syncInFlightRef.current = false
             setTimeout(() => { justSyncedRef.current = false }, 5000)
         }
     }
