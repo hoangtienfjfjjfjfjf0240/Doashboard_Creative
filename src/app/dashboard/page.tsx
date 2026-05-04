@@ -53,6 +53,15 @@ export default function DashboardPage() {
     const [dayOffs, setDayOffs] = useState<DayOffEntry[]>([])
     const [dueDateChanges, setDueDateChanges] = useState<{ task_id: string; old_due_date: string | null; new_due_date: string | null; changed_at: string }[]>([])
 
+    function normalizeName(name: string) {
+        return name
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[\s\u200B-\u200D\uFEFF]+/g, '')
+            .toLowerCase()
+            .trim()
+    }
+
     // Get current user
     useEffect(() => {
         const getUser = async () => {
@@ -150,6 +159,18 @@ export default function DashboardPage() {
     useEffect(() => {
         fetchData()
     }, [fetchData])
+
+    useEffect(() => {
+        if (selectedAssignees.length === 0 || assignees.length === 0) return
+        setSelectedAssignees((prev) => {
+            const remapped = prev
+                .map((selected) => assignees.find((assignee) => normalizeName(assignee) === normalizeName(selected)))
+                .filter((value): value is string => Boolean(value))
+            const unique = [...new Set(remapped)]
+            const unchanged = unique.length === prev.length && unique.every((value, index) => value === prev[index])
+            return unchanged ? prev : unique
+        })
+    }, [assignees, selectedAssignees.length])
 
     // Auto-sync every 5 minutes (client-side, since Vercel Hobby cron is limited to 1x/day)
     useEffect(() => {
@@ -292,15 +313,6 @@ export default function DashboardPage() {
     }
     // Cap to numWeeks most recent week starts to avoid over-counting
     const distinctWeekStarts = allWeekStarts.length > numWeeks ? allWeekStarts.slice(-numWeeks) : allWeekStarts
-
-    // Normalize names for comparison (strip diacritics + lowercase)
-    const normalizeName = (name: string) =>
-        name
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/\s+/g, '')
-            .toLowerCase()
-            .trim()
 
     // Get target for a specific member for a specific week
     const getTargetForMemberWeek = (memberName: string, weekStartStr: string): number => {
