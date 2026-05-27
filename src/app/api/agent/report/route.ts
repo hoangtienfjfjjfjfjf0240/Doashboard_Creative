@@ -195,6 +195,27 @@ function canManageRole(role: string | null | undefined) {
     return Boolean(role && ['admin', 'lead', 'manager'].includes(role))
 }
 
+function canManageAllProjects(role: string | null | undefined) {
+    return Boolean(role && ['admin', 'lead'].includes(role))
+}
+
+function getManagedProjects(
+    profile: Pick<DbProfile, 'role_creative' | 'role_graphic'> | null | undefined,
+    globalRole: string
+): ProjectType[] {
+    const projects: ProjectType[] = []
+
+    if (canManageRole(globalRole) || canManageRole(profile?.role_creative)) {
+        projects.push('creative')
+    }
+
+    if (canManageAllProjects(globalRole) || canManageRole(profile?.role_graphic)) {
+        projects.push('graphic')
+    }
+
+    return projects
+}
+
 function inferProjectScope(message: string, requested: ProjectScope | undefined): ProjectScope {
     if (requested) return requested
     const normalized = normalizeName(message)
@@ -583,25 +604,22 @@ export async function POST(request: NextRequest) {
         .maybeSingle()
 
     const globalRole = profile?.role || 'member'
-    const accessibleProjects: ProjectType[] = []
-    if (globalRole === 'admin' || hasProjectAccess(profile?.role_creative) || hasProjectAccess(globalRole)) {
-        accessibleProjects.push('creative')
-    }
-    if (globalRole === 'admin' || hasProjectAccess(profile?.role_graphic)) {
-        accessibleProjects.push('graphic')
+    const managedProjects = getManagedProjects(profile, globalRole)
+
+    if (managedProjects.length === 0) {
+        return NextResponse.json({ error: 'Manager access required' }, { status: 403 })
     }
 
-    const requestedProjects = projectScope === 'all' ? accessibleProjects : [projectScope]
+    const requestedProjects = projectScope === 'all' ? managedProjects : [projectScope]
     const projects = requestedProjects.filter((project, index, array) =>
-        accessibleProjects.includes(project) && array.indexOf(project) === index
+        managedProjects.includes(project) && array.indexOf(project) === index
     )
 
     if (projects.length === 0) {
-        return NextResponse.json({ error: 'No project access' }, { status: 403 })
+        return NextResponse.json({ error: 'Manager access required for this project' }, { status: 403 })
     }
 
-    const canSeeAll = canManageRole(globalRole) ||
-        projects.some(project => canManageRole(project === 'creative' ? profile?.role_creative : profile?.role_graphic))
+    const canSeeAll = true
 
     const self = {
         names: [profile?.asana_name, profile?.full_name, user.email].filter(Boolean) as string[],

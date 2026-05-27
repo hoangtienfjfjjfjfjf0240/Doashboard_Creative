@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from 'react'
 import { BarChart3, Bot, ChevronDown, Loader2, Maximize2, Minimize2, Send, Sparkles, X } from 'lucide-react'
+import { useUser } from '@/contexts/UserContext'
 
 type ProjectScope = 'all' | 'creative' | 'graphic'
 type RangePreset = 'week' | 'month' | 'last_30_days' | 'all'
@@ -79,8 +80,8 @@ const quickPrompts = [
     },
 ]
 
-const projectOptions: { value: ProjectScope; label: string }[] = [
-    { value: 'all', label: 'All team' },
+const baseProjectOptions: { value: ProjectScope; label: string }[] = [
+    { value: 'all', label: 'Team của bạn' },
     { value: 'creative', label: 'Creative' },
     { value: 'graphic', label: 'Graphic' },
 ]
@@ -101,7 +102,23 @@ function formatPercent(value: number) {
     return `${formatPoint(value)}%`
 }
 
+function isManagerRole(role?: string | null) {
+    return Boolean(role && ['admin', 'lead', 'manager'].includes(role))
+}
+
+function canManageProject(
+    user: { role: string; roleCreative: string; roleGraphic: string } | null,
+    project: 'creative' | 'graphic'
+) {
+    if (!user) return false
+    if (project === 'creative') {
+        return isManagerRole(user.role) || isManagerRole(user.roleCreative)
+    }
+    return ['admin', 'lead'].includes(user.role) || isManagerRole(user.roleGraphic)
+}
+
 export default function AgentChatWidget({ mode = 'floating' }: AgentChatWidgetProps) {
+    const { user, loading: userLoading } = useUser()
     const [open, setOpen] = useState(mode === 'page')
     const [expanded, setExpanded] = useState(mode === 'page')
     const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -111,6 +128,18 @@ export default function AgentChatWidget({ mode = 'floating' }: AgentChatWidgetPr
     const [loading, setLoading] = useState(false)
     const [lastReport, setLastReport] = useState<AgentReport | null>(null)
     const [error, setError] = useState<string | null>(null)
+
+    const canManageCreative = canManageProject(user, 'creative')
+    const canManageGraphic = canManageProject(user, 'graphic')
+    const canUseAgent = canManageCreative || canManageGraphic
+
+    const projectOptions = useMemo(() => {
+        return baseProjectOptions.filter(option => {
+            if (option.value === 'all') return canUseAgent
+            if (option.value === 'creative') return canManageCreative
+            return canManageGraphic
+        })
+    }, [canManageCreative, canManageGraphic, canUseAgent])
 
     const membersToWatch = useMemo(() => {
         return [...(lastReport?.members || [])].sort((a, b) => a.gap - b.gap).slice(0, 4)
@@ -168,6 +197,37 @@ export default function AgentChatWidget({ mode = 'floating' }: AgentChatWidgetPr
     const panelClass = mode === 'page'
         ? 'relative w-full h-[calc(100vh-140px)] max-h-[820px]'
         : `${expanded ? 'w-[min(720px,calc(100vw-32px))] h-[min(760px,calc(100vh-32px))]' : 'w-[min(430px,calc(100vw-24px))] h-[min(640px,calc(100vh-24px))]'} fixed bottom-6 right-6 z-50 shadow-2xl shadow-purple-950/40`
+
+    if (userLoading) {
+        return mode === 'floating'
+            ? null
+            : (
+                <section className={`${panelClass} flex items-center justify-center rounded-[28px] border border-slate-800 bg-slate-900 text-slate-300`}>
+                    <div className="flex items-center gap-3 text-sm">
+                        <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
+                        Đang kiểm tra quyền truy cập...
+                    </div>
+                </section>
+            )
+    }
+
+    if (!canUseAgent) {
+        return mode === 'floating'
+            ? null
+            : (
+                <section className={`${panelClass} flex items-center justify-center rounded-[28px] border border-slate-800 bg-slate-900 p-6 text-center`}>
+                    <div>
+                        <div className="mx-auto mb-4 h-12 w-12 rounded-2xl bg-purple-500/15 flex items-center justify-center">
+                            <Bot className="w-6 h-6 text-purple-300" />
+                        </div>
+                        <h2 className="text-lg font-bold text-white">Chưa có quyền dùng AI Report Agent</h2>
+                        <p className="mt-2 max-w-md text-sm text-slate-400">
+                            Phần report tổng hợp đang chỉ mở cho manager/admin/lead của team.
+                        </p>
+                    </div>
+                </section>
+            )
+    }
 
     if (mode === 'floating' && !open) {
         return (
