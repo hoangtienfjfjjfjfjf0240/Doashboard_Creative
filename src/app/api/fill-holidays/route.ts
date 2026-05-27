@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { fetchAllPages } from '@/lib/supabase/fetchAllPages'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,25 +31,55 @@ const HOLIDAYS_2026 = [
     { date: '2026-09-02', reason: 'Nghỉ lễ Quốc khánh 2/9' }, // Wed
 ]
 
+interface ProfileMember {
+    full_name: string | null
+    asana_name: string | null
+    role: string | null
+    role_creative: string | null
+    role_graphic: string | null
+}
+
+const hasProjectAccess = (role: string | null) => Boolean(role && role !== 'none')
+
 export async function POST() {
     try {
-        // Get all unique member names from tasks and targets (both creative and graphic)
-        const { data: tasks, error: tasksError } = await supabase
-            .from('tasks')
-            .select('assignee_name')
+        // Read every page and every current roster source for both project types.
+        const [tasks, targets, profiles] = await Promise.all([
+            fetchAllPages<{ assignee_name: string | null }>((from, to) =>
+                supabase
+                    .from('tasks')
+                    .select('assignee_name')
+                    .order('id', { ascending: true })
+                    .range(from, to)
+            ),
+            fetchAllPages<{ user_gid: string | null }>((from, to) =>
+                supabase
+                    .from('targets')
+                    .select('user_gid')
+                    .order('user_gid', { ascending: true })
+                    .range(from, to)
+            ),
+            fetchAllPages<ProfileMember>((from, to) =>
+                supabase
+                    .from('profiles')
+                    .select('full_name, asana_name, role, role_creative, role_graphic')
+                    .order('full_name', { ascending: true })
+                    .range(from, to)
+            ),
+        ])
 
-        const { data: targets, error: targetsError } = await supabase
-            .from('targets')
-            .select('user_gid')
-
-        if (tasksError || targetsError) {
-            return NextResponse.json({ error: tasksError?.message || targetsError?.message }, { status: 500 })
-        }
+        const activeProfileNames = profiles
+            .filter(profile =>
+                !(profile.role === 'admin' && !profile.asana_name) &&
+                (hasProjectAccess(profile.role_creative) || hasProjectAccess(profile.role_graphic))
+            )
+            .map(profile => profile.asana_name || profile.full_name)
 
         const uniqueMembers = [...new Set(
             [
-                ...(tasks || []).map(t => t.assignee_name),
-                ...(targets || []).map(t => t.user_gid),
+                ...tasks.map(t => t.assignee_name),
+                ...targets.map(t => t.user_gid),
+                ...activeProfileNames,
             ].filter(Boolean)
         )] as string[]
 

@@ -2,21 +2,14 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname, useRouter } from 'next/navigation'
-import { LayoutTemplate, Target, Users, Calendar, History, Film, Palette, LogOut } from 'lucide-react'
+import { usePathname } from 'next/navigation'
+import { LayoutTemplate, Target, Users, Calendar, History, Film, Palette } from 'lucide-react'
 import { useUser } from '@/contexts/UserContext'
-import { createClient } from '@/lib/supabase/client'
 
 export default function Sidebar() {
     const pathname = usePathname()
-    const router = useRouter()
-    const supabase = createClient()
     const { user, canAccessProject } = useUser()
     const userRole = user?.role || 'member'
-    const userRoleGraphic = user?.roleGraphic || 'member'
-    const isGlobalAdmin = userRole === 'admin'
-    const isCreativeAdmin = isGlobalAdmin || ['manager'].includes(userRole)
-    const isGraphicAdmin = isGlobalAdmin || ['admin', 'manager'].includes(userRoleGraphic)
 
     const creativeItems = [
         { title: 'Overview', path: '/dashboard', icon: LayoutTemplate },

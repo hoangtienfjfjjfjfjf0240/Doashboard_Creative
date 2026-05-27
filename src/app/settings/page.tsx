@@ -234,10 +234,14 @@ export default function SettingsPage() {
                 .select('id, user_gid, week_start_date, target_points, project_type')
                 .eq('project_type', 'creative')
 
-            // Fetch day offs for all members
-            const { data: dayOffsData } = await supabase
-                .from('day_offs')
-                .select('user_email, member_name, date, is_half_day')
+            // Fetch day offs for all members.
+            const dayOffsData = await fetchAllPages<DayOffRecord>((from, to) =>
+                supabase
+                    .from('day_offs')
+                    .select('user_email, member_name, date, is_half_day')
+                    .order('date', { ascending: true })
+                    .range(from, to)
+            )
 
             const targetsMap: Record<string, Record<number, number>> = {}
             const actualPointsMap: Record<string, Record<number, number>> = {}
@@ -266,7 +270,7 @@ export default function SettingsPage() {
             }
 
             // Process day offs: calculate deductions per member per week
-            if (dayOffsData) {
+            {
                 const dayOffsByMemberDate = new Map<string, DayOffRecord>()
                 dayOffsData.forEach((dayOff: DayOffRecord) => {
                     if (!dayOff.member_name || !dayOff.date) return
@@ -283,7 +287,7 @@ export default function SettingsPage() {
                     const date = new Date(dayOff.date + 'T00:00:00')
                     if (date.getFullYear() !== 2026) return
 
-                    // Skip weekends (Sat=6, Sun=0) — Mon-Fri are working days
+                    // Weekly targets are distributed across working days Mon-Thu.
                     if (!isTargetDeductionDay(date)) return
 
                     const weekNum = getWeek(date, { weekStartsOn: 1 })

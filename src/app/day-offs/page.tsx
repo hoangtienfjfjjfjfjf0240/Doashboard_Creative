@@ -5,6 +5,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMont
 import { vi } from 'date-fns/locale'
 import { Calendar, Plus, Loader2, ChevronLeft, ChevronRight, Trash2, Users, User } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { fetchAllPages } from '@/lib/supabase/fetchAllPages'
 import DashboardLayout from '@/components/DashboardLayout'
 import { FALLBACK_TARGET, WORKING_DAYS_PER_WEEK, isTargetDeductionDay } from '@/lib/constants'
 
@@ -31,10 +32,20 @@ interface Target {
     target_points: number
 }
 
+interface ProfileMember {
+    full_name: string | null
+    asana_name: string | null
+    role: string | null
+    role_creative: string | null
+    role_graphic: string | null
+}
+
 const DEFAULT_TARGET_PER_WEEK = FALLBACK_TARGET
 
 const normalizeName = (name: string) =>
     name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+
+const hasProjectAccess = (role: string | null) => Boolean(role && role !== 'none')
 
 export default function DayOffsPage() {
     const [currentMonth, setCurrentMonth] = useState(new Date())
@@ -71,27 +82,48 @@ export default function DayOffsPage() {
     }
 
     async function fetchMembers() {
-        // Get unique members from tasks
-        const { data: tasks } = await supabase
-            .from('tasks')
-            .select('assignee_name')
+        const [tasks, targets, profiles] = await Promise.all([
+            fetchAllPages<{ assignee_name: string | null }>((from, to) =>
+                supabase
+                    .from('tasks')
+                    .select('assignee_name')
+                    .order('id', { ascending: true })
+                    .range(from, to)
+            ),
+            fetchAllPages<Target>((from, to) =>
+                supabase
+                    .from('targets')
+                    .select('user_gid, week_start_date, target_points')
+                    .order('week_start_date', { ascending: true })
+                    .range(from, to)
+            ),
+            fetchAllPages<ProfileMember>((from, to) =>
+                supabase
+                    .from('profiles')
+                    .select('full_name, asana_name, role, role_creative, role_graphic')
+                    .order('full_name', { ascending: true })
+                    .range(from, to)
+            ),
+        ])
 
-        if (tasks) {
-            const uniqueMembers = [...new Set(tasks.map(t => t.assignee_name).filter(Boolean))] as string[]
-            setMembers(uniqueMembers.sort())
-            // If admin, no member selected initially. If member, auto-select own name.
-            if (user?.role === 'member' || user?.role === undefined) {
-                setSelectedMember(user?.asana_name || user?.full_name || '')
-            }
-        }
+        const activeProfileNames = profiles
+            .filter(profile =>
+                !(profile.role === 'admin' && !profile.asana_name) &&
+                (hasProjectAccess(profile.role_creative) || hasProjectAccess(profile.role_graphic))
+            )
+            .map(profile => profile.asana_name || profile.full_name)
 
-        // Fetch targets for all members (both creative and graphic)
-        const { data: targets } = await supabase
-            .from('targets')
-            .select('*')
+        const uniqueMembers = [...new Set([
+            ...activeProfileNames,
+            ...tasks.map(task => task.assignee_name),
+            ...targets.map(target => target.user_gid),
+        ].filter(Boolean))] as string[]
 
-        if (targets && targets.length > 0) {
-            setAllTargets(targets)
+        setMembers(uniqueMembers.sort((a, b) => a.localeCompare(b, 'vi')))
+        setAllTargets(targets)
+
+        if (!isAdmin) {
+            setSelectedMember(user?.asana_name || user?.full_name || '')
         }
     }
 
@@ -103,7 +135,9 @@ export default function DayOffsPage() {
 
         const activeName = isAdmin ? selectedMember : (user.asana_name || user.full_name || '')
         if (!activeName) return
-        const memberAliases = [...new Set([activeName, user.asana_name, user.full_name].filter(Boolean))]
+        const memberAliases = isAdmin
+            ? [activeName]
+            : [...new Set([activeName, user.asana_name, user.full_name].filter(Boolean))]
 
         // Query by member_name so we get both personal day-offs AND holidays
         // (holidays have user_email='system@holiday' so filtering by user_email would exclude them)

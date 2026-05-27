@@ -187,10 +187,14 @@ export default function GraphicSettingsPage() {
                     .select('id, user_gid, week_start_date, target_points, project_type')
                     .eq('project_type', 'graphic')
 
-                // Fetch day offs
-                const { data: dayOffsData } = await supabase
-                    .from('day_offs')
-                    .select('user_email, member_name, date, is_half_day')
+                // Fetch day offs for all members.
+                const dayOffsData = await fetchAllPages<DayOffRecord>((from, to) =>
+                    supabase
+                        .from('day_offs')
+                        .select('user_email, member_name, date, is_half_day')
+                        .order('date', { ascending: true })
+                        .range(from, to)
+                )
 
                 const targetsMap: Record<string, Record<number, number>> = {}
                 const actualPointsMap: Record<string, Record<number, number>> = {}
@@ -215,7 +219,7 @@ export default function GraphicSettingsPage() {
                     })
                 }
 
-                if (dayOffsData) {
+                {
                     const dayOffsByMemberDate = new Map<string, DayOffRecord>()
                     dayOffsData.forEach((dayOff: DayOffRecord) => {
                         if (!dayOff.member_name || !dayOff.date) return

@@ -143,14 +143,15 @@ export default function DashboardPage() {
                 setTargets(targetsData)
             }
 
-            // Fetch day offs
-            const { data: dayOffsData } = await supabase
-                .from('day_offs')
-                .select('user_email, member_name, date, is_half_day')
+            const dayOffsData = await fetchAllPages<DayOffEntry>((from, to) =>
+                supabase
+                    .from('day_offs')
+                    .select('user_email, member_name, date, is_half_day')
+                    .order('date', { ascending: true })
+                    .range(from, to)
+            )
 
-            if (dayOffsData) {
-                setDayOffs(dayOffsData)
-            }
+            setDayOffs(dayOffsData)
 
             // Fetch due_date_changes for deadline rate calculation
             const { data: changesData } = await supabase
