@@ -15,15 +15,15 @@ const ThemeContext = createContext<ThemeContextType>({
 })
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-    const [theme, setTheme] = useState<Theme>('dark')
+    const [theme, setTheme] = useState<Theme>(() => {
+        if (typeof window === 'undefined') return 'dark'
+        const saved = localStorage.getItem('dashboard_theme')
+        return saved === 'dark' || saved === 'light' ? saved : 'dark'
+    })
 
     useEffect(() => {
-        const saved = localStorage.getItem('dashboard_theme') as Theme
-        if (saved && (saved === 'dark' || saved === 'light')) {
-            setTheme(saved)
-            document.documentElement.setAttribute('data-theme', saved)
-        }
-    }, [])
+        document.documentElement.setAttribute('data-theme', theme)
+    }, [theme])
 
     const toggleTheme = () => {
         const next = theme === 'dark' ? 'light' : 'dark'

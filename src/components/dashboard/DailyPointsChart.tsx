@@ -1,6 +1,5 @@
 'use client'
 
-import { useMemo } from 'react'
 import { format, eachDayOfInterval, getWeek } from 'date-fns'
 import { TrendingUp, Sparkles } from 'lucide-react'
 
@@ -33,7 +32,7 @@ const DAY_MAP: Record<number, string> = { 0: 'CN', 1: 'T2', 2: 'T3', 3: 'T4', 4:
 export default function DailyPointsChart({ tasks, dateRange, dateField = 'due_date' }: DailyPointsChartProps) {
     const start = dateRange?.start || new Date()
     const end = dateRange?.end || new Date()
-    const allDays = eachDayOfInterval({ start, end })
+    const weekdays = eachDayOfInterval({ start, end }).filter(day => day.getDay() !== 0 && day.getDay() !== 6)
 
     const getTaskDate = (task: Task): string | null => {
         if (dateField === 'due_date') {
@@ -50,33 +49,28 @@ export default function DailyPointsChart({ tasks, dateRange, dateField = 'due_da
         }
     })
 
-    const weekdays = allDays.filter(day => day.getDay() !== 0 && day.getDay() !== 6)
+    const weekGroups: { weekLabel: string; days: { date: Date; dayKey: string; label: string; dateLabel: string; points: number }[] }[] = []
+    let currentWeekNum = -1
+    let currentGroup: typeof weekGroups[0] | null = null
 
-    const weekGroups = useMemo(() => {
-        const groups: { weekLabel: string; days: { date: Date; dayKey: string; label: string; dateLabel: string; points: number }[] }[] = []
-        let currentWeekNum = -1
-        let currentGroup: typeof groups[0] | null = null
+    weekdays.forEach(day => {
+        const weekNum = getWeek(day, { weekStartsOn: 1 })
+        const dayKey = format(day, 'yyyy-MM-dd')
 
-        weekdays.forEach(day => {
-            const weekNum = getWeek(day, { weekStartsOn: 1 })
-            const dayKey = format(day, 'yyyy-MM-dd')
+        if (weekNum !== currentWeekNum) {
+            currentWeekNum = weekNum
+            currentGroup = { weekLabel: `Tuần ${weekNum}`, days: [] }
+            weekGroups.push(currentGroup)
+        }
 
-            if (weekNum !== currentWeekNum) {
-                currentWeekNum = weekNum
-                currentGroup = { weekLabel: `Tuần ${weekNum}`, days: [] }
-                groups.push(currentGroup)
-            }
-
-            currentGroup!.days.push({
-                date: day,
-                dayKey,
-                label: DAY_MAP[day.getDay()],
-                dateLabel: format(day, 'dd/MM'),
-                points: pointsByDay[dayKey] || 0,
-            })
+        currentGroup!.days.push({
+            date: day,
+            dayKey,
+            label: DAY_MAP[day.getDay()],
+            dateLabel: format(day, 'dd/MM'),
+            points: pointsByDay[dayKey] || 0,
         })
-        return groups
-    }, [weekdays.length, JSON.stringify(pointsByDay)])
+    })
 
     const chartData = weekGroups.flatMap(g => g.days)
     const maxPoints = Math.max(...chartData.map(d => d.points), 1)

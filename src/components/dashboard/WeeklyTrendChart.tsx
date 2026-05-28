@@ -47,7 +47,7 @@ export default function WeeklyTrendChart({ data }: WeeklyTrendChartProps) {
                                 padding: '10px',
                             }}
                             labelStyle={{ color: '#f1f5f9', fontWeight: 600 }}
-                            formatter={(value: any) => [`${value} điểm`, '']}
+                            formatter={(value: number | string | undefined) => [`${value ?? 0} điểm`, '']}
                         />
                         <Area
                             type="monotone"

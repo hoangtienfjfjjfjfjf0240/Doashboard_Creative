@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { format, addDays, startOfWeek, isSameDay } from 'date-fns'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { format, addDays, isSameDay } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { Calendar, Plus, X, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { FALLBACK_TARGET, WORKING_DAYS_PER_WEEK, isTargetDeductionDay } from '@/lib/constants'
 
 interface DayOff {
     id: string
@@ -19,8 +20,8 @@ interface DayOffCalendarProps {
     onTargetChange?: (adjustedTarget: number) => void
 }
 
-const DEFAULT_TARGET = 160
-const POINTS_PER_DAY = 32 // 160 / 5 days
+const DEFAULT_TARGET = FALLBACK_TARGET
+const POINTS_PER_DAY = DEFAULT_TARGET / WORKING_DAYS_PER_WEEK
 
 export default function DayOffCalendar({ userEmail, weekStart, onTargetChange }: DayOffCalendarProps) {
     const [dayOffs, setDayOffs] = useState<DayOff[]>([])
@@ -28,19 +29,17 @@ export default function DayOffCalendar({ userEmail, weekStart, onTargetChange }:
     const [adding, setAdding] = useState(false)
     const [selectedDate, setSelectedDate] = useState<Date | null>(null)
     const [reason, setReason] = useState('')
-    const supabase = createClient()
+    const supabase = useMemo(() => createClient(), [])
 
-    // Get weekdays (Mon-Fri)
-    const weekdays = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i))
+    const weekdays = useMemo(() => {
+        return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+            .filter(isTargetDeductionDay)
+    }, [weekStart])
 
-    useEffect(() => {
-        fetchDayOffs()
-    }, [weekStart, userEmail])
-
-    const fetchDayOffs = async () => {
+    const fetchDayOffs = useCallback(async () => {
         setLoading(true)
-        const startStr = format(weekStart, 'yyyy-MM-dd')
-        const endStr = format(addDays(weekStart, 4), 'yyyy-MM-dd')
+        const startStr = format(weekdays[0], 'yyyy-MM-dd')
+        const endStr = format(weekdays[weekdays.length - 1], 'yyyy-MM-dd')
 
         const { data } = await supabase
             .from('day_offs')
@@ -56,7 +55,12 @@ export default function DayOffCalendar({ userEmail, weekStart, onTargetChange }:
             onTargetChange?.(Math.max(0, adjustedTarget))
         }
         setLoading(false)
-    }
+    }, [onTargetChange, supabase, userEmail, weekdays])
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchDayOffs()
+    }, [fetchDayOffs])
 
     const isDayOff = (date: Date) => {
         return dayOffs.some(d => d.date === format(date, 'yyyy-MM-dd'))
@@ -129,15 +133,15 @@ export default function DayOffCalendar({ userEmail, weekStart, onTargetChange }:
             ) : (
                 <>
                     {/* Calendar Grid */}
-                    <div className="grid grid-cols-5 gap-1 text-center mb-2">
-                        {['T2', 'T3', 'T4', 'T5', 'T6'].map(day => (
+                    <div className="grid grid-cols-4 gap-1 text-center mb-2">
+                        {['T3', 'T4', 'T5', 'T6'].map(day => (
                             <div key={day} className="text-[10px] text-slate-500 font-medium py-1">
                                 {day}
                             </div>
                         ))}
                     </div>
 
-                    <div className="grid grid-cols-5 gap-1">
+                    <div className="grid grid-cols-4 gap-1">
                         {weekdays.map(date => {
                             const isOff = isDayOff(date)
                             const offReason = getDayOffReason(date)

@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 interface UserData {
@@ -30,9 +30,9 @@ const UserContext = createContext<UserContextType>({
 export function UserProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<UserData | null>(null)
     const [loading, setLoading] = useState(true)
-    const supabase = createClient()
+    const supabase = useMemo(() => createClient(), [])
 
-    const fetchUserProfile = async () => {
+    const fetchUserProfile = useCallback(async () => {
         const { data: { user: authUser } } = await supabase.auth.getUser()
         if (authUser) {
             const { data: profile } = await supabase
@@ -55,9 +55,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
             return userData
         }
         return null
-    }
+    }, [supabase])
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchUserProfile().finally(() => setLoading(false))
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -71,7 +72,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         })
 
         return () => subscription.unsubscribe()
-    }, [])
+    }, [fetchUserProfile, supabase.auth])
 
     const canAccessProject = (project: 'creative' | 'graphic'): boolean => {
         if (!user) return false
