@@ -9,8 +9,8 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-// Company holidays 2026. Weekend/Fri dates are inserted for visibility,
-// while target deduction code only subtracts working days (Mon-Thu).
+// Company holidays 2026. Weekend dates are inserted for visibility,
+// while target deduction code only subtracts configured working days.
 const HOLIDAYS_2026 = [
     // Tết Nguyên Đán: 13/02 - 22/02/2026
     { date: '2026-02-13', reason: 'Nghỉ Tết Nguyên Đán' },  // Fri
