@@ -36,12 +36,12 @@ export const DESIGN_POINT_CONFIG: Record<string, number> = {
 /** All creative video type keys */
 export const VIDEO_TYPES = Object.keys(CREATIVE_POINT_CONFIG)
 
-/** Weekly target divisor */
+/** Day-off deduction divisor */
 export const WORKING_DAYS_PER_WEEK = 4
 
 export function isTargetDeductionDay(date: Date): boolean {
     const dayOfWeek = date.getDay()
-    return dayOfWeek >= 2 && dayOfWeek <= 5
+    return dayOfWeek >= 1 && dayOfWeek <= 5
 }
 
 /** Default fallback target points per member per week */
