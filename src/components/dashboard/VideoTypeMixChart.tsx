@@ -29,6 +29,7 @@ const VIDEO_TYPE_COLORS: Record<string, { badge: string; bar: string; glow: stri
     S9C: { badge: 'bg-fuchsia-500', bar: 'linear-gradient(90deg, #d946ef, #e879f9)', glow: 'rgba(217,70,239,0.3)' },
     // Graphic design types
     ScreenShot: { badge: 'bg-cyan-500', bar: 'linear-gradient(90deg, #06b6d4, #22d3ee)', glow: 'rgba(6,182,212,0.3)' },
+    'ScreenShot (loại 2)': { badge: 'bg-sky-500', bar: 'linear-gradient(90deg, #0ea5e9, #38bdf8)', glow: 'rgba(14,165,233,0.3)' },
     'Deep Localize': { badge: 'bg-teal-500', bar: 'linear-gradient(90deg, #14b8a6, #2dd4bf)', glow: 'rgba(20,184,166,0.3)' },
     'Cover, Promotional Content': { badge: 'bg-rose-500', bar: 'linear-gradient(90deg, #f43f5e, #fb7185)', glow: 'rgba(244,63,94,0.3)' },
     Icon: { badge: 'bg-lime-500', bar: 'linear-gradient(90deg, #84cc16, #a3e635)', glow: 'rgba(132,204,22,0.3)' },
@@ -39,6 +40,7 @@ const VIDEO_TYPE_COLORS: Record<string, { badge: string; bar: string; glow: stri
 // Short labels for display
 const VIDEO_TYPE_SHORT: Record<string, string> = {
     'ScreenShot': 'SS',
+    'ScreenShot (loại 2)': 'SS2',
     'Deep Localize': 'DL',
     'Cover, Promotional Content': 'Cover',
     'Localize Screenshot': 'LocSS',
@@ -54,6 +56,7 @@ const UNIT_OVERRIDE_BO = new Set([
     'Deep Localize',
     'Deep Localization',
     'ScreenShot',
+    'ScreenShot (loại 2)',
     'Research Doc',
     'Cover, Promotional Content',
 ])

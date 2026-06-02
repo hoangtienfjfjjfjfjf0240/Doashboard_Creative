@@ -25,6 +25,7 @@ export const CREATIVE_POINT_CONFIG: Record<string, number> = {
 export const DESIGN_POINT_CONFIG: Record<string, number> = {
     'Research Doc': 12,
     'ScreenShot': 24,
+    'ScreenShot (loại 2)': 12,
     'Icon': 2,
     'Cover, Promotional Content': 12,
     'Localize Screenshot': 6,

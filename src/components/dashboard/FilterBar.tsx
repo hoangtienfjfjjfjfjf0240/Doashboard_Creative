@@ -29,8 +29,6 @@ interface FilterBarProps {
     onWeeksChange: (weeks: Set<string>) => void
 }
 
-const VIDEO_TYPES = ['S1', 'S2A', 'S2B', 'S3A', 'S3B', 'S4', 'S5', 'S6', 'S7', 'S7A', 'S8', 'S9A', 'S9B', 'S9C', 'S10A']
-
 // Timeline data for 2026 with actual dates
 // Tuần chạy từ Thứ 2 → Thứ 6, xuyên qua ranh giới tháng
 interface WeekData {
@@ -245,6 +243,7 @@ export default function FilterBar({
     onAssigneesChange,
     status,
     onStatusChange,
+    videoTypes,
     selectedVideoTypes,
     onVideoTypesChange,
     onSync,
@@ -688,7 +687,7 @@ export default function FilterBar({
                     </button>
 
                     {showTypeDropdown && (
-                        <div className="absolute top-full mt-2 left-0 w-48 bg-slate-800/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-2xl z-[200] p-2 animate-slide-down">
+                        <div className="absolute top-full mt-2 left-0 w-64 max-h-96 overflow-y-auto bg-slate-800/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-2xl z-[200] p-2 animate-slide-down">
                             <button
                                 onClick={() => {
                                     onVideoTypesChange([])
@@ -698,11 +697,11 @@ export default function FilterBar({
                             >
                                 All Types
                             </button>
-                            {VIDEO_TYPES.map(type => (
+                            {videoTypes.map(type => (
                                 <button
                                     key={type}
                                     onClick={() => toggleVideoType(type)}
-                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${selectedVideoTypes.includes(type) ? 'bg-purple-500/20 text-purple-300' : 'text-slate-300 hover:bg-slate-700'}`}
+                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors break-words ${selectedVideoTypes.includes(type) ? 'bg-purple-500/20 text-purple-300' : 'text-slate-300 hover:bg-slate-700'}`}
                                 >
                                     {type}
                                 </button>
