@@ -54,7 +54,6 @@ const UNIT_OVERRIDE_BO = new Set([
     'Localize',
     'Localize Screenshot',
     'Deep Localize',
-    'Deep Localization',
     'ScreenShot',
     'ScreenShot (loại 2)',
     'Research Doc',

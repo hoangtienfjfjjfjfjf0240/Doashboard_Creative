@@ -29,9 +29,8 @@ export const DESIGN_POINT_CONFIG: Record<string, number> = {
     'Icon': 2,
     'Cover, Promotional Content': 12,
     'Localize Screenshot': 6,
-    'Localize': 6,
-    'Deep Localize': 24,
-    'Deep Localization': 24,
+    'Localize': 3,
+    'Deep Localize': 20,
 }
 
 /** All creative video type keys */
