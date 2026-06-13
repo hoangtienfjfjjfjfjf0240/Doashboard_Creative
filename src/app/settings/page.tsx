@@ -80,7 +80,7 @@ export default function SettingsPage() {
 
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
-    const [user, setUser] = useState<{ role: string; fullName: string; asanaName: string } | null>(null)
+    const [user, setUser] = useState<{ role: string; fullName: string; asanaName: string; email: string } | null>(null)
     const [assignees, setAssignees] = useState<string[]>([])
     const [targets, setTargets] = useState<AssigneeTarget[]>([])
     const [defaultTarget, setDefaultTarget] = useState('160')
@@ -135,6 +135,7 @@ export default function SettingsPage() {
                 role,
                 fullName: profile?.full_name || '',
                 asanaName: profile?.asana_name || profile?.full_name || '',
+                email: authUser.email || '',
             })
         }
         checkAccess()
@@ -169,17 +170,21 @@ export default function SettingsPage() {
             // Include role_creative to filter only creative team members
             const { data: allProfiles } = await supabase
                 .from('profiles')
-                .select('full_name, asana_name, role, role_creative')
+                .select('full_name, asana_name, role, role_creative, email')
 
             // Build member list from profiles — use asana_name as the display/match key
             // Only include members who belong to creative team (role_creative != 'none')
             let memberNames: string[] = []
             const profileNameMap: Record<string, string> = {} // asana_name -> display name
+            const profileNameByEmail: Record<string, string> = {}
 
             if (allProfiles) {
                 allProfiles.forEach(p => {
                     const displayName = p.asana_name || p.full_name
                     if (!displayName) return
+                    if (p.email) {
+                        profileNameByEmail[p.email.toLowerCase()] = displayName
+                    }
                     // Skip admin accounts that don't have tasks (like tienhv)
                     if (p.role === 'admin' && !p.asana_name) return
                     // Only include creative team members
@@ -325,9 +330,24 @@ export default function SettingsPage() {
             // Calculate actual points from completed tasks
             // Use due_date for week grouping (consistent with dashboard overview)
             tasks.forEach(task => {
-                if (!task.assignee_name) return
+                const profileName = task.assignee_email
+                    ? profileNameByEmail[task.assignee_email.toLowerCase()]
+                    : undefined
+                const assigneeName = profileName || task.assignee_name
+
+                if (!assigneeName) return
                 if (task.status !== 'done') return
-                if (user.role === 'member' && task.assignee_name !== user.asanaName && task.assignee_name !== user.fullName) return
+                if (user.role === 'member') {
+                    const taskEmail = task.assignee_email?.toLowerCase()
+                    const userEmail = user.email.toLowerCase()
+                    const isOwnTask =
+                        assigneeName === user.asanaName ||
+                        assigneeName === user.fullName ||
+                        task.assignee_name === user.asanaName ||
+                        task.assignee_name === user.fullName ||
+                        (Boolean(taskEmail) && taskEmail === userEmail)
+                    if (!isOwnTask) return
+                }
 
                 // Use due_date to determine which week the task belongs to
                 // This matches the dashboard overview logic
@@ -344,11 +364,11 @@ export default function SettingsPage() {
                 const weekNum = getWeek(taskDate, { weekStartsOn: 1 })
                 const points = task.points || 0
 
-                if (!actualPointsMap[task.assignee_name]) {
-                    actualPointsMap[task.assignee_name] = {}
+                if (!actualPointsMap[assigneeName]) {
+                    actualPointsMap[assigneeName] = {}
                 }
-                actualPointsMap[task.assignee_name][weekNum] =
-                    (actualPointsMap[task.assignee_name][weekNum] || 0) + points
+                actualPointsMap[assigneeName][weekNum] =
+                    (actualPointsMap[assigneeName][weekNum] || 0) + points
             })
 
             const targetsArray = memberNames.map(name => ({

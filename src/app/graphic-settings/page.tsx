@@ -132,13 +132,17 @@ export default function GraphicSettingsPage() {
                 // Fetch profiles to build member list - only graphic team members
                 const { data: allProfiles } = await supabase
                     .from('profiles')
-                    .select('full_name, asana_name, role, role_graphic')
+                    .select('full_name, asana_name, role, role_graphic, email')
 
                 let memberNames: string[] = []
+                const profileNameByEmail: Record<string, string> = {}
                 if (allProfiles) {
                     allProfiles.forEach(p => {
                         const displayName = p.asana_name || p.full_name
                         if (!displayName) return
+                        if (p.email) {
+                            profileNameByEmail[p.email.toLowerCase()] = displayName
+                        }
                         // Skip admin accounts without asana_name
                         if (p.role === 'admin' && !p.asana_name) return
                         // Only include graphic team members
@@ -256,14 +260,19 @@ export default function GraphicSettingsPage() {
                 }
 
                 tasks.forEach(task => {
-                    if (!task.assignee_name || task.status !== 'done') return
+                    const profileName = task.assignee_email
+                        ? profileNameByEmail[task.assignee_email.toLowerCase()]
+                        : undefined
+                    const assigneeName = profileName || task.assignee_name
+
+                    if (!assigneeName || task.status !== 'done') return
                     // Use due_date for week grouping (consistent with dashboard overview)
                     const taskDate = task.due_date ? new Date(task.due_date) : null
                     if (!taskDate) return
                     if (taskDate.getFullYear() !== 2026 || taskDate.getMonth() < 1) return
                     const weekNum = getWeek(taskDate, { weekStartsOn: 1 })
-                    if (!actualPointsMap[task.assignee_name]) actualPointsMap[task.assignee_name] = {}
-                    actualPointsMap[task.assignee_name][weekNum] = (actualPointsMap[task.assignee_name][weekNum] || 0) + (task.points || 0)
+                    if (!actualPointsMap[assigneeName]) actualPointsMap[assigneeName] = {}
+                    actualPointsMap[assigneeName][weekNum] = (actualPointsMap[assigneeName][weekNum] || 0) + (task.points || 0)
                 })
 
                 setTargets(memberNames.map(name => ({
