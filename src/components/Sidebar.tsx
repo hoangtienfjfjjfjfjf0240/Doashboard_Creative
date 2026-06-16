@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { LayoutTemplate, Target, Users, Calendar, History, Film, Palette } from 'lucide-react'
+import { LayoutTemplate, Target, Users, Calendar, History, Film, Palette, BarChart3 } from 'lucide-react'
 import { useUser } from '@/contexts/UserContext'
 
 export default function Sidebar() {
@@ -24,6 +24,12 @@ export default function Sidebar() {
     ]
 
     const commonItems = [
+        {
+            title: 'Benchmark Creative',
+            path: '/creative-benchmark',
+            icon: BarChart3,
+            roles: ['member', 'admin', 'manager', 'editor'],
+        },
         {
             title: 'Ngày Nghỉ',
             path: '/day-offs',
