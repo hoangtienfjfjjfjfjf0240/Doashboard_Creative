@@ -11,24 +11,17 @@ import {
     subDays,
 } from 'date-fns'
 import {
-    Apple,
     BarChart3,
     Calendar,
-    Cast,
     Check,
     ChevronDown,
     ChevronLeft,
     ChevronRight,
-    HeartPulse,
-    Home,
     ExternalLink,
     Link2,
     Plus,
-    QrCode,
     RefreshCw,
     Save,
-    Search,
-    ShieldCheck,
     Trash2,
     X,
     type LucideIcon,
@@ -63,6 +56,7 @@ type BenchmarkRow = {
     cpi: string
     cpm: string
     passed: boolean
+    win: boolean
 }
 
 type DbBenchmarkEntry = {
@@ -76,6 +70,7 @@ type DbBenchmarkEntry = {
     cpi: number | null
     cpm: number | null
     passed: boolean | null
+    win: boolean | null
     sort_order: number | null
 }
 
@@ -83,12 +78,22 @@ type WeeklyStats = {
     videosCreated: string
     funnelOneCount: string
     winCount: string
+    benchmarkMarket: string
+    benchmarkCtr: string
+    benchmarkCvr: string
+    benchmarkCpi: string
+    benchmarkCpm: string
 }
 
 type DbWeeklyStats = {
     videos_created: number | null
     funnel_one_count: number | null
     win_count: number | null
+    benchmark_market: string | null
+    benchmark_ctr: number | null
+    benchmark_cvr: number | null
+    benchmark_cpi: number | null
+    benchmark_cpm: number | null
 }
 
 type DetectedApp = {
@@ -102,76 +107,92 @@ type DetectedApp = {
 
 const BENCHMARK_APPS: BenchmarkApp[] = [
     {
-        id: 'onesearch',
-        name: 'OneSearch - Tìm kiếm & Trợ lý ảo',
+        id: 'app-store-1641040766',
+        name: 'AI Cleaner: Clean Up Storage+',
         category: 'Tiện ích',
-        meta: '46 tính năng',
-        icon: Search,
-        accent: 'from-slate-700 to-black',
+        meta: 'App Store',
+        iconUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/21/07/29/210729ae-3d3f-a0ce-1d0f-e983d9159d18/AppIcon-0-0-1x_U007ephone-0-1-0-85-220.png/100x100bb.jpg',
+        accent: 'from-indigo-500 to-blue-700',
+        storeUrl: 'https://apps.apple.com/us/app/ai-cleaner-clean-up-storage/id1641040766?uo=4',
+        source: 'app-store',
+        externalId: '1641040766',
     },
     {
-        id: 'cast-tv',
-        name: 'Cast TV: Chromecast, Screencast',
-        category: 'Tiện ích',
-        meta: '56 tính năng',
-        icon: Cast,
-        accent: 'from-blue-500 to-amber-400',
-    },
-    {
-        id: 'authenticator',
-        name: 'Authenticator App',
-        category: 'Tiện ích',
-        meta: '63 tính năng',
-        icon: ShieldCheck,
-        accent: 'from-sky-400 to-blue-700',
-    },
-    {
-        id: 'ikcal-103',
-        name: 'ikcal AI Calorie Counter',
+        id: 'app-store-6468660073',
+        name: 'iCardiac: Heart Rate & Health',
         category: 'Sức khỏe & Thể hình',
-        meta: '103 tính năng',
-        icon: Apple,
-        accent: 'from-zinc-800 to-black',
-    },
-    {
-        id: 'icardiac',
-        name: 'iCardiac: Heart Health Monitor',
-        category: 'Sức khỏe & Thể hình',
-        meta: '100 tính năng',
-        icon: HeartPulse,
+        meta: 'App Store',
+        iconUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/5d/66/3f/5d663f6f-56c9-4043-ae0e-c5bce1568a9d/AppIcon-0-0-1x_U007ephone-0-1-0-85-220.png/100x100bb.jpg',
         accent: 'from-rose-400 to-red-600',
+        storeUrl: 'https://apps.apple.com/us/app/icardiac-heart-rate-health/id6468660073?uo=4',
+        source: 'app-store',
+        externalId: '6468660073',
     },
     {
-        id: 'ai-home',
-        name: 'AI Home Design & Interior Decor',
-        category: 'Tiện ích',
-        meta: '88 tính năng',
-        icon: Home,
-        accent: 'from-amber-300 to-stone-600',
-    },
-    {
-        id: 'ikcal-86',
-        name: 'ikcal AI Calorie Counter',
+        id: 'app-store-6737820730',
+        name: 'BetterMeal: Daily Food Scanner',
         category: 'Sức khỏe & Thể hình',
-        meta: '86 tính năng',
-        icon: Apple,
+        meta: 'App Store',
+        iconUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/8a/b6/a1/8ab6a1da-d2a0-8598-9db1-0f67e6f00639/AppIcon-0-0-1x_U007epad-0-1-0-85-220.png/100x100bb.jpg',
         accent: 'from-zinc-800 to-black',
+        storeUrl: 'https://apps.apple.com/us/app/bettermeal-daily-food-scanner/id6737820730?uo=4',
+        source: 'app-store',
+        externalId: '6737820730',
     },
     {
-        id: 'qr-reader',
-        name: 'QR Code Reader - Scan Barcode',
+        id: 'google-play-com-chat-chatai-chatbot-aichatbot',
+        name: 'OneSearch: DeepSearch Finder',
         category: 'Tiện ích',
-        meta: '41 tính năng',
-        icon: QrCode,
+        meta: 'CH Play',
+        iconUrl: 'https://play-lh.googleusercontent.com/6G404D8racifwToPJ6ViEvOrnzYrmsudcIN0drD5XfcYiNzolpdrYHSExDgsTgBNE13Mb0qjUjgkkeKsI1yI',
+        accent: 'from-slate-700 to-black',
+        playUrl: 'https://play.google.com/store/apps/details?id=com.chat.chatai.chatbot.aichatbot',
+        source: 'google-play',
+        externalId: 'com.chat.chatai.chatbot.aichatbot',
+    },
+    {
+        id: 'app-store-6754923194',
+        name: 'SnapHome: AI Interior Design',
+        category: 'Đồ họa & Thiết kế',
+        meta: 'App Store',
+        iconUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/93/56/fb/9356fbe5-239a-70e4-31b2-48303fc2c3d5/AppIcon-0-0-1x_U007ephone-0-1-0-85-220.png/100x100bb.jpg',
+        accent: 'from-amber-300 to-stone-600',
+        storeUrl: 'https://apps.apple.com/us/app/snaphome-ai-interior-design/id6754923194?uo=4',
+        source: 'app-store',
+        externalId: '6754923194',
+    },
+    {
+        id: 'app-store-6504796378',
+        name: 'QR Code Reader, Scan Barcode',
+        category: 'Tiện ích',
+        meta: 'App Store',
+        iconUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/20/e9/73/20e9734f-dc4c-e83a-dd14-dc5b034ddd7b/AppIcon-0-0-1x_U007ephone-0-1-0-85-220.png/100x100bb.jpg',
         accent: 'from-sky-400 to-blue-600',
+        storeUrl: 'https://apps.apple.com/us/app/qr-code-reader-scan-barcode/id6504796378?uo=4',
+        source: 'app-store',
+        externalId: '6504796378',
     },
     {
-        id: 'phone-cleaner',
-        name: 'Phone Cleaner - Clean Storage',
+        id: 'app-store-6759957263',
+        name: 'Office Word: Edit Document',
+        category: 'Năng suất',
+        meta: 'App Store',
+        iconUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/de/a7/0f/dea70f79-a133-63bb-ad38-84e1dfeed2de/AppIcon-0-0-1x_U007epad-0-1-0-85-220.png/100x100bb.jpg',
+        accent: 'from-blue-500 to-cyan-500',
+        storeUrl: 'https://apps.apple.com/us/app/office-word-edit-document/id6759957263?uo=4',
+        source: 'app-store',
+        externalId: '6759957263',
+    },
+    {
+        id: 'google-play-com-aicleaner-clean-cleanstorage-ai',
+        name: 'AI Cleaner: Clean up Storage',
         category: 'Tiện ích',
-        meta: '61 tính năng',
-        icon: Trash2,
+        meta: 'CH Play',
+        iconUrl: 'https://play-lh.googleusercontent.com/4k-JMrJ0-bZqVTtltbvMHPaC5pWsUMYKrZX4BkQOGEQ__4pDLBFOoyyTMq9xQi3QpVq4cWoULYZpZZq2dcGEpWc',
         accent: 'from-indigo-400 to-blue-700',
+        playUrl: 'https://play.google.com/store/apps/details?id=com.aicleaner.clean.cleanstorage.ai',
+        source: 'google-play',
+        externalId: 'com.aicleaner.clean.cleanstorage.ai',
     },
 ]
 
@@ -196,6 +217,8 @@ const QUICK_WEEKS = [
     { key: 'next-week', label: 'Tuần sau', offset: 1 },
 ]
 
+const MARKET_OPTIONS = ['US/Global', 'US', 'Global', 'VN', 'TH', 'ID', 'BR', 'MX', 'JP', 'KR']
+
 function toDateKey(date: Date) {
     return format(date, 'yyyy-MM-dd')
 }
@@ -204,12 +227,13 @@ function makeRow(overrides: Partial<BenchmarkRow> = {}): BenchmarkRow {
     return {
         id: crypto.randomUUID(),
         ideaName: '',
-        market: '',
+        market: 'US',
         ctr: '',
         cvr: '',
         cpi: '',
         cpm: '',
         passed: false,
+        win: false,
         ...overrides,
     }
 }
@@ -233,12 +257,12 @@ function parseMetric(value: string) {
 function hasRowContent(row: BenchmarkRow) {
     return Boolean(
         row.ideaName.trim() ||
-        row.market.trim() ||
         row.ctr.trim() ||
         row.cvr.trim() ||
         row.cpi.trim() ||
         row.cpm.trim() ||
-        row.passed
+        row.passed ||
+        row.win
     )
 }
 
@@ -251,7 +275,11 @@ function getStatsStorageKey(appId: string, weekStart: string) {
 }
 
 function getAppsStorageKey() {
-    return 'creative-benchmark:custom-apps'
+    return 'creative-benchmark:custom-apps:v2'
+}
+
+function getHiddenAppsStorageKey() {
+    return 'creative-benchmark:hidden-apps:v1'
 }
 
 function makeBlankStats(): WeeklyStats {
@@ -259,12 +287,22 @@ function makeBlankStats(): WeeklyStats {
         videosCreated: '',
         funnelOneCount: '',
         winCount: '',
+        benchmarkMarket: 'US/Global',
+        benchmarkCtr: '1.50',
+        benchmarkCvr: '20',
+        benchmarkCpi: '4',
+        benchmarkCpm: '12',
     }
 }
 
 function toNumber(value: string) {
     const parsed = Number(value)
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+}
+
+function getSupabaseSaveError(error?: { message?: string } | null) {
+    const detail = error?.message ? ` (${error.message})` : ''
+    return `Chưa lưu được Supabase. Dữ liệu đang được giữ tạm trên trình duyệt, cần chạy migration benchmark trước.${detail}`
 }
 
 function makeAppId(name: string, source?: string, externalId?: string) {
@@ -311,6 +349,7 @@ export default function CreativeBenchmarkPage() {
 
     const [selectedAppId, setSelectedAppId] = useState(BENCHMARK_APPS[0].id)
     const [customApps, setCustomApps] = useState<BenchmarkApp[]>([])
+    const [hiddenAppIds, setHiddenAppIds] = useState<string[]>([])
     const [selectedWeekStart, setSelectedWeekStart] = useState(currentWeekStart)
     const [showWeekPicker, setShowWeekPicker] = useState(false)
     const [showAddApp, setShowAddApp] = useState(false)
@@ -321,21 +360,24 @@ export default function CreativeBenchmarkPage() {
     const [detectingApp, setDetectingApp] = useState(false)
     const [rows, setRows] = useState<BenchmarkRow[]>(() => makeBlankRows())
     const [weeklyStats, setWeeklyStats] = useState<WeeklyStats>(() => makeBlankStats())
-    const [storageMode, setStorageMode] = useState<StorageMode>('checking')
+    const [, setStorageMode] = useState<StorageMode>('checking')
     const [loadingRows, setLoadingRows] = useState(true)
     const [saving, setSaving] = useState(false)
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
     const weekPickerRef = useRef<HTMLDivElement>(null)
 
-    const benchmarkApps = useMemo(() => [...BENCHMARK_APPS, ...customApps], [customApps])
-    const selectedApp = benchmarkApps.find(app => app.id === selectedAppId) || benchmarkApps[0]
+    const benchmarkApps = useMemo(
+        () => [...BENCHMARK_APPS, ...customApps].filter(app => !hiddenAppIds.includes(app.id)),
+        [customApps, hiddenAppIds]
+    )
+    const selectedApp = benchmarkApps.find(app => app.id === selectedAppId) || benchmarkApps[0] || BENCHMARK_APPS[0]
     const selectedWeekKey = toDateKey(selectedWeekStart)
     const selectedWeekEnd = addDays(selectedWeekStart, 4)
     const filledRows = rows.filter(row => row.ideaName.trim())
     const passedCount = filledRows.filter(row => row.passed).length
     const videosCreated = toNumber(weeklyStats.videosCreated) || filledRows.length
     const funnelOneCount = toNumber(weeklyStats.funnelOneCount)
-    const winCount = toNumber(weeklyStats.winCount)
+    const winCount = filledRows.filter(row => row.win).length
     const benchmarkRate = videosCreated > 0 ? Math.round((passedCount / videosCreated) * 100) : 0
     const funnelOneRate = videosCreated > 0 ? Math.round((funnelOneCount / videosCreated) * 100) : 0
     const winRate = funnelOneCount > 0 ? Math.round((winCount / funnelOneCount) * 100) : 0
@@ -386,27 +428,35 @@ export default function CreativeBenchmarkPage() {
         localStorage.setItem(getAppsStorageKey(), JSON.stringify(apps))
     }, [])
 
+    const loadHiddenAppIds = useCallback(() => {
+        try {
+            const raw = localStorage.getItem(getHiddenAppsStorageKey())
+            if (!raw) return []
+            const parsed = JSON.parse(raw)
+            return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : []
+        } catch {
+            return []
+        }
+    }, [])
+
+    const saveHiddenAppIds = useCallback((appIds: string[]) => {
+        localStorage.setItem(getHiddenAppsStorageKey(), JSON.stringify(appIds))
+    }, [])
+
     const loadRows = useCallback(async (appId: string, weekStartKey: string) => {
         setLoadingRows(true)
         setMessage(null)
 
-        if (storageMode === 'local') {
-            setRows(loadLocalRows(appId, weekStartKey))
-            setWeeklyStats(loadLocalStats(appId, weekStartKey))
-            setLoadingRows(false)
-            return
-        }
-
         const [{ data, error }, statsResult] = await Promise.all([
             supabase
             .from('creative_benchmark_entries')
-            .select('id, app_id, week_start_date, idea_name, market, ctr, cvr, cpi, cpm, passed, sort_order')
+            .select('id, app_id, week_start_date, idea_name, market, ctr, cvr, cpi, cpm, passed, win, sort_order')
             .eq('app_id', appId)
             .eq('week_start_date', weekStartKey)
             .order('sort_order', { ascending: true }),
             supabase
                 .from('creative_benchmark_weekly_stats')
-                .select('videos_created, funnel_one_count, win_count')
+                .select('videos_created, funnel_one_count, win_count, benchmark_market, benchmark_ctr, benchmark_cvr, benchmark_cpi, benchmark_cpm')
                 .eq('app_id', appId)
                 .eq('week_start_date', weekStartKey)
                 .maybeSingle(),
@@ -416,6 +466,7 @@ export default function CreativeBenchmarkPage() {
             setStorageMode('local')
             setRows(loadLocalRows(appId, weekStartKey))
             setWeeklyStats(loadLocalStats(appId, weekStartKey))
+            setMessage({ type: 'error', text: getSupabaseSaveError(error || statsResult.error) })
             setLoadingRows(false)
             return
         }
@@ -431,17 +482,29 @@ export default function CreativeBenchmarkPage() {
                 cpi: formatMetric(entry.cpi),
                 cpm: formatMetric(entry.cpm),
                 passed: Boolean(entry.passed),
+                win: Boolean(entry.win),
             })
         )
-        setRows(dbRows.length > 0 ? dbRows : makeBlankRows())
+        const localRows = loadLocalRows(appId, weekStartKey)
+        const hasLocalRows = localRows.some(hasRowContent)
+        setRows(dbRows.length > 0 ? dbRows : hasLocalRows ? localRows : makeBlankRows())
         const dbStats = statsResult.data as DbWeeklyStats | null
+        const localStats = loadLocalStats(appId, weekStartKey)
         setWeeklyStats(dbStats ? {
             videosCreated: dbStats.videos_created ? String(dbStats.videos_created) : '',
             funnelOneCount: dbStats.funnel_one_count ? String(dbStats.funnel_one_count) : '',
             winCount: dbStats.win_count ? String(dbStats.win_count) : '',
-        } : makeBlankStats())
+            benchmarkMarket: dbStats.benchmark_market || 'US/Global',
+            benchmarkCtr: dbStats.benchmark_ctr !== null && dbStats.benchmark_ctr !== undefined ? String(dbStats.benchmark_ctr) : '1.50',
+            benchmarkCvr: dbStats.benchmark_cvr !== null && dbStats.benchmark_cvr !== undefined ? String(dbStats.benchmark_cvr) : '20',
+            benchmarkCpi: dbStats.benchmark_cpi !== null && dbStats.benchmark_cpi !== undefined ? String(dbStats.benchmark_cpi) : '4',
+            benchmarkCpm: dbStats.benchmark_cpm !== null && dbStats.benchmark_cpm !== undefined ? String(dbStats.benchmark_cpm) : '12',
+        } : localStats)
+        if (dbRows.length === 0 && !dbStats && (hasLocalRows || JSON.stringify(localStats) !== JSON.stringify(makeBlankStats()))) {
+            setMessage({ type: 'error', text: 'Có dữ liệu đang giữ tạm trên trình duyệt. Sau khi chạy migration Supabase, bấm Lưu benchmark để đẩy lên DB.' })
+        }
         setLoadingRows(false)
-    }, [loadLocalRows, loadLocalStats, storageMode, supabase])
+    }, [loadLocalRows, loadLocalStats, supabase])
 
     useEffect(() => {
         if (!userLoading && !user) {
@@ -451,7 +514,14 @@ export default function CreativeBenchmarkPage() {
 
     useEffect(() => {
         setCustomApps(loadCustomApps())
-    }, [loadCustomApps])
+        setHiddenAppIds(loadHiddenAppIds())
+    }, [loadCustomApps, loadHiddenAppIds])
+
+    useEffect(() => {
+        if (benchmarkApps.length > 0 && !benchmarkApps.some(app => app.id === selectedAppId)) {
+            setSelectedAppId(benchmarkApps[0].id)
+        }
+    }, [benchmarkApps, selectedAppId])
 
     useEffect(() => {
         loadRows(selectedAppId, selectedWeekKey)
@@ -485,16 +555,9 @@ export default function CreativeBenchmarkPage() {
 
     const saveRows = async () => {
         const rowsToSave = rows.filter(hasRowContent)
+        const statsToSave: WeeklyStats = { ...weeklyStats, winCount: String(winCount) }
         setSaving(true)
         setMessage(null)
-
-        if (storageMode === 'local') {
-            saveLocalRows(selectedAppId, selectedWeekKey, rowsToSave)
-            saveLocalStats(selectedAppId, selectedWeekKey, weeklyStats)
-            setMessage({ type: 'success', text: 'Đã lưu benchmark' })
-            setSaving(false)
-            return
-        }
 
         const { error: deleteError } = await supabase
             .from('creative_benchmark_entries')
@@ -511,8 +574,8 @@ export default function CreativeBenchmarkPage() {
         if (deleteError || statsDeleteError) {
             setStorageMode('local')
             saveLocalRows(selectedAppId, selectedWeekKey, rowsToSave)
-            saveLocalStats(selectedAppId, selectedWeekKey, weeklyStats)
-            setMessage({ type: 'success', text: 'Đã lưu benchmark' })
+            saveLocalStats(selectedAppId, selectedWeekKey, statsToSave)
+            setMessage({ type: 'error', text: getSupabaseSaveError(deleteError || statsDeleteError) })
             setSaving(false)
             return
         }
@@ -528,6 +591,7 @@ export default function CreativeBenchmarkPage() {
                 cpi: parseMetric(row.cpi),
                 cpm: parseMetric(row.cpm),
                 passed: row.passed,
+                win: row.win,
                 sort_order: index,
             }))
 
@@ -538,8 +602,8 @@ export default function CreativeBenchmarkPage() {
             if (insertError) {
                 setStorageMode('local')
                 saveLocalRows(selectedAppId, selectedWeekKey, rowsToSave)
-                saveLocalStats(selectedAppId, selectedWeekKey, weeklyStats)
-                setMessage({ type: 'success', text: 'Đã lưu benchmark' })
+                saveLocalStats(selectedAppId, selectedWeekKey, statsToSave)
+                setMessage({ type: 'error', text: getSupabaseSaveError(insertError) })
                 setSaving(false)
                 return
             }
@@ -552,14 +616,19 @@ export default function CreativeBenchmarkPage() {
                 week_start_date: selectedWeekKey,
                 videos_created: toNumber(weeklyStats.videosCreated),
                 funnel_one_count: toNumber(weeklyStats.funnelOneCount),
-                win_count: toNumber(weeklyStats.winCount),
+                win_count: winCount,
+                benchmark_market: weeklyStats.benchmarkMarket || 'US/Global',
+                benchmark_ctr: parseMetric(weeklyStats.benchmarkCtr),
+                benchmark_cvr: parseMetric(weeklyStats.benchmarkCvr),
+                benchmark_cpi: parseMetric(weeklyStats.benchmarkCpi),
+                benchmark_cpm: parseMetric(weeklyStats.benchmarkCpm),
             })
 
         if (statsInsertError) {
             setStorageMode('local')
             saveLocalRows(selectedAppId, selectedWeekKey, rowsToSave)
-            saveLocalStats(selectedAppId, selectedWeekKey, weeklyStats)
-            setMessage({ type: 'success', text: 'Đã lưu benchmark' })
+            saveLocalStats(selectedAppId, selectedWeekKey, statsToSave)
+            setMessage({ type: 'error', text: getSupabaseSaveError(statsInsertError) })
             setSaving(false)
             return
         }
@@ -570,31 +639,32 @@ export default function CreativeBenchmarkPage() {
 
     const copyPreviousWeek = async () => {
         const previousWeekKey = toDateKey(subDays(selectedWeekStart, 7))
-        if (storageMode === 'local') {
-            const previousRows = loadLocalRows(selectedAppId, previousWeekKey).filter(hasRowContent)
-            if (previousRows.length === 0) {
-                setMessage({ type: 'error', text: 'Tuần trước chưa có benchmark' })
-                return
-            }
-            setRows(previousRows.map(row => makeRow({ ...row, passed: false })))
-            setMessage({ type: 'success', text: 'Đã copy từ tuần trước' })
-            return
-        }
+        const previousLocalRows = loadLocalRows(selectedAppId, previousWeekKey).filter(hasRowContent)
 
         const { data, error } = await supabase
             .from('creative_benchmark_entries')
-            .select('idea_name, market, ctr, cvr, cpi, cpm, passed, sort_order')
+            .select('idea_name, market, ctr, cvr, cpi, cpm, passed, win, sort_order')
             .eq('app_id', selectedAppId)
             .eq('week_start_date', previousWeekKey)
             .order('sort_order', { ascending: true })
 
         if (error) {
-            setMessage({ type: 'error', text: 'Không copy được tuần trước' })
+            if (previousLocalRows.length > 0) {
+                setRows(previousLocalRows.map(row => makeRow({ ...row, passed: false, win: false })))
+                setMessage({ type: 'error', text: 'Đã copy từ dữ liệu tạm trên trình duyệt. Supabase vẫn chưa sẵn sàng để đọc benchmark.' })
+                return
+            }
+            setMessage({ type: 'error', text: getSupabaseSaveError(error) })
             return
         }
 
         const previousRows = (data as Omit<DbBenchmarkEntry, 'id' | 'app_id' | 'week_start_date'>[] | null || [])
         if (previousRows.length === 0) {
+            if (previousLocalRows.length > 0) {
+                setRows(previousLocalRows.map(row => makeRow({ ...row, passed: false, win: false })))
+                setMessage({ type: 'success', text: 'Đã copy từ dữ liệu tạm tuần trước' })
+                return
+            }
             setMessage({ type: 'error', text: 'Tuần trước chưa có benchmark' })
             return
         }
@@ -608,13 +678,18 @@ export default function CreativeBenchmarkPage() {
                 cpi: formatMetric(row.cpi),
                 cpm: formatMetric(row.cpm),
                 passed: false,
+                win: false,
             })
         ))
         setMessage({ type: 'success', text: 'Đã copy từ tuần trước' })
     }
 
     const updateWeeklyStat = (field: keyof WeeklyStats, value: string) => {
-        const cleaned = value.replace(/[^0-9]/g, '')
+        const cleaned = field === 'videosCreated' || field === 'funnelOneCount' || field === 'winCount'
+            ? value.replace(/[^0-9]/g, '')
+            : field === 'benchmarkMarket'
+                ? value
+                : value.replace(/[^0-9.,]/g, '')
         setWeeklyStats(prev => {
             const next = { ...prev, [field]: cleaned }
             saveLocalStats(selectedAppId, selectedWeekKey, next)
@@ -675,6 +750,32 @@ export default function CreativeBenchmarkPage() {
         setDetectedApp(null)
         setAppLink('')
         setMessage({ type: 'success', text: 'Đã thêm app benchmark' })
+    }
+
+    const deleteApp = (appId: string) => {
+        if (benchmarkApps.length <= 1) {
+            setMessage({ type: 'error', text: 'Cần giữ ít nhất 1 app benchmark' })
+            return
+        }
+
+        const nextVisibleApps = benchmarkApps.filter(app => app.id !== appId)
+        const isCustomApp = customApps.some(app => app.id === appId)
+
+        if (isCustomApp) {
+            const nextCustomApps = customApps.filter(app => app.id !== appId)
+            setCustomApps(nextCustomApps)
+            saveCustomApps(nextCustomApps)
+        } else {
+            const nextHiddenAppIds = Array.from(new Set([...hiddenAppIds, appId]))
+            setHiddenAppIds(nextHiddenAppIds)
+            saveHiddenAppIds(nextHiddenAppIds)
+        }
+
+        if (selectedAppId === appId && nextVisibleApps[0]) {
+            setSelectedAppId(nextVisibleApps[0].id)
+        }
+
+        setMessage({ type: 'success', text: 'Đã xóa app benchmark' })
     }
 
     if (userLoading || !user) {
@@ -822,18 +923,6 @@ export default function CreativeBenchmarkPage() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
-                        <SummaryCard label="Video tạo theo tuần" value={videosCreated} tone="blue" />
-                        <SummaryCard label="Video đạt benchmark" value={`${passedCount}/${videosCreated || 0} (${benchmarkRate}%)`} tone="green" />
-                        <SummaryCard label="Tỉ lệ phễu 1" value={`${funnelOneRate}%`} tone="purple" />
-                        <SummaryCard label="Tỉ lệ win" value={`${winRate}%`} tone="amber" />
-                        <SummaryCard
-                            label="Chế độ lưu"
-                            value={storageMode === 'database' ? 'Supabase' : storageMode === 'checking' ? 'Đang kiểm tra' : 'Local'}
-                            tone="amber"
-                        />
-                    </div>
-
                     {message && (
                         <div className={`rounded-xl border px-4 py-3 text-sm ${message.type === 'success'
                             ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
@@ -936,34 +1025,45 @@ export default function CreativeBenchmarkPage() {
                                     const Icon = app.icon || Link2
                                     const active = selectedAppId === app.id
                                     return (
-                                        <button
+                                        <div
                                             key={app.id}
-                                            onClick={() => setSelectedAppId(app.id)}
-                                            className={`text-left rounded-xl border bg-slate-900/70 p-4 transition-all ${active
+                                            className={`relative rounded-xl border bg-slate-900/70 transition-all ${active
                                                 ? 'border-purple-400 shadow-lg shadow-purple-950/50 ring-1 ring-purple-400/40'
                                                 : 'border-slate-800 hover:border-slate-600 hover:bg-slate-900'
                                                 }`}
                                         >
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${app.accent} flex items-center justify-center shadow-lg`}>
-                                                    {app.iconUrl ? (
-                                                        // eslint-disable-next-line @next/next/no-img-element
-                                                        <img src={app.iconUrl} alt="" className="w-full h-full rounded-2xl object-cover" />
-                                                    ) : (
-                                                        <Icon className="w-6 h-6 text-white" />
-                                                    )}
-                                                </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <span className="px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-200 text-[10px] font-bold uppercase">
-                                                            {app.category}
-                                                        </span>
+                                            <button
+                                                onClick={() => setSelectedAppId(app.id)}
+                                                className="w-full text-left p-4 pr-12"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${app.accent} flex items-center justify-center shadow-lg`}>
+                                                        {app.iconUrl ? (
+                                                            // eslint-disable-next-line @next/next/no-img-element
+                                                            <img src={app.iconUrl} alt="" className="w-full h-full rounded-2xl object-cover" />
+                                                        ) : (
+                                                            <Icon className="w-6 h-6 text-white" />
+                                                        )}
                                                     </div>
-                                                    <p className="font-semibold text-sm text-white truncate">{app.name}</p>
-                                                    <p className="text-xs text-slate-500 mt-1">{app.meta}</p>
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-200 text-[10px] font-bold uppercase">
+                                                                {app.category}
+                                                            </span>
+                                                        </div>
+                                                        <p className="font-semibold text-sm text-white truncate">{app.name}</p>
+                                                        <p className="text-xs text-slate-500 mt-1">{app.meta}</p>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </button>
+                                            </button>
+                                            <button
+                                                onClick={() => deleteApp(app.id)}
+                                                className="absolute top-3 right-3 w-8 h-8 rounded-lg text-slate-500 hover:text-rose-300 hover:bg-rose-500/10 transition-colors flex items-center justify-center"
+                                                aria-label="Xóa app"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     )
                                 })}
                             </div>
@@ -1013,12 +1113,16 @@ export default function CreativeBenchmarkPage() {
                                     </button>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 px-4 py-4 border-b border-slate-800 bg-slate-950/20">
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 px-4 py-4 border-b border-slate-800 bg-slate-950/20">
                                     <WeeklyStatInput
-                                        label="Số video tạo"
+                                        label="Video tạo theo tuần"
                                         value={weeklyStats.videosCreated}
                                         onChange={value => updateWeeklyStat('videosCreated', value)}
                                         fallbackValue={filledRows.length}
+                                    />
+                                    <WeeklyStatDisplay
+                                        label="Video đạt benchmark"
+                                        value={`${passedCount}/${videosCreated || 0} (${benchmarkRate}%)`}
                                     />
                                     <WeeklyStatInput
                                         label="Qua phễu 1"
@@ -1026,16 +1130,15 @@ export default function CreativeBenchmarkPage() {
                                         onChange={value => updateWeeklyStat('funnelOneCount', value)}
                                         suffix={`${funnelOneRate}%`}
                                     />
-                                    <WeeklyStatInput
-                                        label="Win"
-                                        value={weeklyStats.winCount}
-                                        onChange={value => updateWeeklyStat('winCount', value)}
-                                        suffix={`${winRate}%`}
+                                    <WeeklyStatDisplay
+                                        label="Tỉ lệ win"
+                                        value={`${winRate}%`}
+                                        suffix={`${winCount}/${funnelOneCount || 0}`}
                                     />
                                 </div>
 
                                 <div className="overflow-x-auto">
-                                    <table className="w-full min-w-[920px]">
+                                    <table className="w-full min-w-[1000px]">
                                         <thead className="bg-slate-950/60">
                                             <tr>
                                                 <th className="px-3 py-3 text-left text-xs font-bold text-slate-400 uppercase w-[36%]">Tên idea</th>
@@ -1045,13 +1148,37 @@ export default function CreativeBenchmarkPage() {
                                                 <th className="px-3 py-3 text-right text-xs font-bold text-slate-400 uppercase">CPI</th>
                                                 <th className="px-3 py-3 text-right text-xs font-bold text-slate-400 uppercase">CPM</th>
                                                 <th className="px-3 py-3 text-center text-xs font-bold text-slate-400 uppercase">Đạt</th>
+                                                <th className="px-3 py-3 text-center text-xs font-bold text-slate-400 uppercase">Win</th>
                                                 <th className="px-3 py-3 w-12" />
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-800">
+                                            <tr className="bg-amber-500/10 hover:bg-amber-500/15">
+                                                <td className="px-3 py-2">
+                                                    <div className="h-9 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 flex items-center text-sm font-bold text-amber-200">
+                                                        Benchmark
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 py-2">
+                                                    <MarketSelect
+                                                        value={weeklyStats.benchmarkMarket}
+                                                        onChange={value => updateWeeklyStat('benchmarkMarket', value)}
+                                                        tone="benchmark"
+                                                    />
+                                                </td>
+                                                <MetricCell value={weeklyStats.benchmarkCtr} onChange={value => updateWeeklyStat('benchmarkCtr', value)} placeholder="1.50" suffix="%" />
+                                                <MetricCell value={weeklyStats.benchmarkCvr} onChange={value => updateWeeklyStat('benchmarkCvr', value)} placeholder="20" suffix="%" />
+                                                <MetricCell value={weeklyStats.benchmarkCpi} onChange={value => updateWeeklyStat('benchmarkCpi', value)} placeholder="4" prefix="$" />
+                                                <MetricCell value={weeklyStats.benchmarkCpm} onChange={value => updateWeeklyStat('benchmarkCpm', value)} placeholder="12" prefix="$" />
+                                                <td className="px-3 py-2 text-center">
+                                                    <span className="text-xs font-bold text-amber-300">Chuẩn</span>
+                                                </td>
+                                                <td className="px-3 py-2" />
+                                                <td className="px-3 py-2" />
+                                            </tr>
                                             {loadingRows ? (
                                                 <tr>
-                                                    <td colSpan={8} className="py-16 text-center">
+                                                    <td colSpan={9} className="py-16 text-center">
                                                         <div className="inline-flex w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
                                                     </td>
                                                 </tr>
@@ -1066,11 +1193,9 @@ export default function CreativeBenchmarkPage() {
                                                         />
                                                     </td>
                                                     <td className="px-3 py-2">
-                                                        <input
+                                                        <MarketSelect
                                                             value={row.market}
-                                                            onChange={event => updateRow(row.id, 'market', event.target.value)}
-                                                            className="w-full h-9 bg-slate-950/70 border border-slate-800 rounded-lg px-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                                            placeholder="US"
+                                                            onChange={value => updateRow(row.id, 'market', value)}
                                                         />
                                                     </td>
                                                     <MetricCell value={row.ctr} onChange={value => updateRow(row.id, 'ctr', value)} placeholder="1.37" suffix="%" />
@@ -1087,6 +1212,18 @@ export default function CreativeBenchmarkPage() {
                                                             aria-label="Đạt benchmark"
                                                         >
                                                             {row.passed && <Check className="w-4 h-4" />}
+                                                        </button>
+                                                    </td>
+                                                    <td className="px-3 py-2 text-center">
+                                                        <button
+                                                            onClick={() => updateRow(row.id, 'win', !row.win)}
+                                                            className={`mx-auto w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${row.win
+                                                                ? 'bg-amber-500 border-amber-400 text-white'
+                                                                : 'bg-slate-950/70 border-slate-700 text-slate-500 hover:border-slate-500'
+                                                                }`}
+                                                            aria-label="Win sau phễu 1"
+                                                        >
+                                                            {row.win && <Check className="w-4 h-4" />}
                                                         </button>
                                                     </td>
                                                     <td className="px-3 py-2">
@@ -1146,27 +1283,56 @@ function WeeklyStatInput({
     )
 }
 
-function SummaryCard({
+function WeeklyStatDisplay({
     label,
     value,
-    tone,
+    suffix,
 }: {
     label: string
     value: string | number
-    tone: 'blue' | 'green' | 'purple' | 'amber'
+    suffix?: string
 }) {
-    const toneClass = {
-        blue: 'from-blue-500/20 to-blue-500/5 border-blue-500/25 text-blue-200',
-        green: 'from-emerald-500/20 to-emerald-500/5 border-emerald-500/25 text-emerald-200',
-        purple: 'from-purple-500/20 to-purple-500/5 border-purple-500/25 text-purple-200',
-        amber: 'from-amber-500/20 to-amber-500/5 border-amber-500/25 text-amber-200',
-    }[tone]
+    return (
+        <div>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</span>
+            <div className="relative mt-2 h-11 rounded-xl bg-slate-950/80 border border-slate-800 px-3 pr-16 flex items-center">
+                <span className="text-sm font-bold text-white">{value}</span>
+                {suffix && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-purple-300">
+                        {suffix}
+                    </span>
+                )}
+            </div>
+        </div>
+    )
+}
+
+function MarketSelect({
+    value,
+    onChange,
+    tone = 'default',
+}: {
+    value: string
+    onChange: (value: string) => void
+    tone?: 'default' | 'benchmark'
+}) {
+    const customValue = value && !MARKET_OPTIONS.includes(value) ? value : null
+    const className = tone === 'benchmark'
+        ? 'w-full h-9 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 text-sm font-semibold text-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-400'
+        : 'w-full h-9 bg-slate-950/70 border border-slate-800 rounded-lg px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500'
 
     return (
-        <div className={`rounded-xl border bg-gradient-to-br ${toneClass} p-4`}>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</p>
-            <p className="text-2xl font-bold mt-2 text-white">{value}</p>
-        </div>
+        <select
+            value={value}
+            onChange={event => onChange(event.target.value)}
+            className={className}
+        >
+            {tone === 'default' && <option value="">Chọn</option>}
+            {customValue && <option value={customValue}>{customValue}</option>}
+            {MARKET_OPTIONS.map(option => (
+                <option key={option} value={option}>{option}</option>
+            ))}
+        </select>
     )
 }
 
