@@ -105,6 +105,19 @@ type DetectedApp = {
     externalId?: string
 }
 
+type BenchmarkAppDeleteHistoryRecord = {
+    id: string
+    appId: string
+    appName: string
+    category: string
+    meta: string
+    deletedAt: string
+    deletedByEmail: string
+    deletedByName: string
+    deletedByRole: string
+    isCustom: boolean
+}
+
 const BENCHMARK_APPS: BenchmarkApp[] = [
     {
         id: 'app-store-1641040766',
@@ -301,6 +314,10 @@ function getHiddenAppsStorageKey() {
     return 'creative-benchmark:hidden-apps:v1'
 }
 
+function getDeleteHistoryStorageKey() {
+    return 'creative-benchmark:app-delete-history:v1'
+}
+
 function makeBlankStats(): WeeklyStats {
     return {
         videosCreated: '',
@@ -384,6 +401,10 @@ export default function CreativeBenchmarkPage() {
     const [saving, setSaving] = useState(false)
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
     const weekPickerRef = useRef<HTMLDivElement>(null)
+    const canDeleteApps = user?.role === 'admin'
+        || user?.role === 'manager'
+        || user?.roleCreative === 'admin'
+        || user?.roleCreative === 'manager'
 
     const benchmarkApps = useMemo(
         () => [...BENCHMARK_APPS, ...customApps].filter(app => !hiddenAppIds.includes(app.id)),
@@ -461,6 +482,21 @@ export default function CreativeBenchmarkPage() {
 
     const saveHiddenAppIds = useCallback((appIds: string[]) => {
         localStorage.setItem(getHiddenAppsStorageKey(), JSON.stringify(appIds))
+    }, [])
+
+    const loadDeleteHistory = useCallback(() => {
+        try {
+            const raw = localStorage.getItem(getDeleteHistoryStorageKey())
+            if (!raw) return []
+            const parsed = JSON.parse(raw)
+            return Array.isArray(parsed) ? parsed as BenchmarkAppDeleteHistoryRecord[] : []
+        } catch {
+            return []
+        }
+    }, [])
+
+    const saveDeleteHistory = useCallback((records: BenchmarkAppDeleteHistoryRecord[]) => {
+        localStorage.setItem(getDeleteHistoryStorageKey(), JSON.stringify(records.slice(0, 200)))
     }, [])
 
     const loadRows = useCallback(async (appId: string, weekStartKey: string) => {
@@ -783,8 +819,19 @@ export default function CreativeBenchmarkPage() {
     }
 
     const deleteApp = (appId: string) => {
+        if (!canDeleteApps) {
+            setMessage({ type: 'error', text: 'Chỉ manager/admin mới được xóa app benchmark' })
+            return
+        }
+
         if (benchmarkApps.length <= 1) {
             setMessage({ type: 'error', text: 'Cần giữ ít nhất 1 app benchmark' })
+            return
+        }
+
+        const targetApp = benchmarkApps.find(app => app.id === appId)
+        if (!targetApp) {
+            setMessage({ type: 'error', text: 'Không tìm thấy app để xóa' })
             return
         }
 
@@ -804,6 +851,23 @@ export default function CreativeBenchmarkPage() {
         if (selectedAppId === appId && nextVisibleApps[0]) {
             setSelectedAppId(nextVisibleApps[0].id)
         }
+
+        const nextHistory = [
+            {
+                id: crypto.randomUUID(),
+                appId: targetApp.id,
+                appName: targetApp.name,
+                category: targetApp.category,
+                meta: targetApp.meta,
+                deletedAt: new Date().toISOString(),
+                deletedByEmail: user?.email || '',
+                deletedByName: user?.fullName || user?.email || 'Unknown',
+                deletedByRole: user?.roleCreative || user?.role || 'member',
+                isCustom: isCustomApp,
+            },
+            ...loadDeleteHistory(),
+        ]
+        saveDeleteHistory(nextHistory)
 
         setMessage({ type: 'success', text: 'Đã xóa app benchmark' })
     }
@@ -1086,13 +1150,15 @@ export default function CreativeBenchmarkPage() {
                                                     </div>
                                                 </div>
                                             </button>
-                                            <button
-                                                onClick={() => deleteApp(app.id)}
-                                                className="absolute top-3 right-3 w-8 h-8 rounded-lg text-slate-500 hover:text-rose-300 hover:bg-rose-500/10 transition-colors flex items-center justify-center"
-                                                aria-label="Xóa app"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                                            {canDeleteApps && (
+                                                <button
+                                                    onClick={() => deleteApp(app.id)}
+                                                    className="absolute top-3 right-3 w-8 h-8 rounded-lg text-slate-500 hover:text-rose-300 hover:bg-rose-500/10 transition-colors flex items-center justify-center"
+                                                    aria-label="Xóa app"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            )}
                                         </div>
                                     )
                                 })}
