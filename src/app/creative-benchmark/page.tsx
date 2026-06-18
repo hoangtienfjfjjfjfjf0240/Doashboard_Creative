@@ -226,7 +226,6 @@ const MONTH_NAMES = [
 
 const QUICK_WEEKS = [
     { key: 'this-week', label: 'Tuần này', offset: 0 },
-    { key: 'last-week', label: 'Tuần trước', offset: -1 },
     { key: 'next-week', label: 'Tuần sau', offset: 1 },
 ]
 
@@ -351,19 +350,28 @@ function makeAppId(name: string, source?: string, externalId?: string) {
         .toLowerCase()
 }
 
-function generateTimelineWeeks() {
-    const firstMonday = new Date(2026, 1, 2)
-    return Array.from({ length: 24 }, (_, index) => {
-        const start = startOfWeek(addWeeks(firstMonday, index), { weekStartsOn: 1 })
-        const end = addDays(start, 4)
-        return {
-            index: index + 1,
-            start,
+function generateTimelineWeeks(startDate: Date) {
+    const firstWeekStart = startOfWeek(startDate, { weekStartsOn: 1 })
+    const finalWeekStart = startOfWeek(new Date(startDate.getFullYear(), 11, 31), { weekStartsOn: 1 })
+    const weeks = []
+
+    let currentStart = firstWeekStart
+    let index = 1
+
+    while (currentStart.getTime() <= finalWeekStart.getTime()) {
+        const end = addDays(currentStart, 4)
+        weeks.push({
+            index,
+            start: currentStart,
             end,
-            month: start.getMonth(),
-            year: start.getFullYear(),
-        }
-    })
+            month: currentStart.getMonth(),
+            year: currentStart.getFullYear(),
+        })
+        currentStart = addWeeks(currentStart, 1)
+        index += 1
+    }
+
+    return weeks
 }
 
 function groupWeeksByMonth(weeks: ReturnType<typeof generateTimelineWeeks>) {
@@ -379,9 +387,9 @@ export default function CreativeBenchmarkPage() {
     const router = useRouter()
     const supabase = useMemo(() => createClient(), [])
     const { user, loading: userLoading } = useUser()
-    const timelineWeeks = useMemo(() => generateTimelineWeeks(), [])
-    const weeksByMonth = useMemo(() => groupWeeksByMonth(timelineWeeks), [timelineWeeks])
     const currentWeekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), [])
+    const timelineWeeks = useMemo(() => generateTimelineWeeks(currentWeekStart), [currentWeekStart])
+    const weeksByMonth = useMemo(() => groupWeeksByMonth(timelineWeeks), [timelineWeeks])
 
     const [selectedAppId, setSelectedAppId] = useState(BENCHMARK_APPS[0].id)
     const [customApps, setCustomApps] = useState<BenchmarkApp[]>([])
@@ -413,6 +421,9 @@ export default function CreativeBenchmarkPage() {
     const selectedApp = benchmarkApps.find(app => app.id === selectedAppId) || benchmarkApps[0] || BENCHMARK_APPS[0]
     const selectedWeekKey = toDateKey(selectedWeekStart)
     const selectedWeekEnd = addDays(selectedWeekStart, 4)
+    const lastTimelineWeekStart = timelineWeeks[timelineWeeks.length - 1]?.start || currentWeekStart
+    const canGoToPreviousWeek = selectedWeekStart.getTime() > currentWeekStart.getTime()
+    const canGoToNextWeek = selectedWeekStart.getTime() < lastTimelineWeekStart.getTime()
     const normalizedRows = useMemo(() => rows.map(syncBenchmarkRow), [rows])
     const filledRows = normalizedRows.filter(hasBenchmarkInput)
     const passedCount = filledRows.length
@@ -958,6 +969,9 @@ export default function CreativeBenchmarkPage() {
                                                 <div className="space-y-1">
                                                     {QUICK_WEEKS.map(quick => {
                                                         const weekStart = addWeeks(currentWeekStart, quick.offset)
+                                                        if (weekStart.getTime() > lastTimelineWeekStart.getTime()) {
+                                                            return null
+                                                        }
                                                         const active = isSameDay(selectedWeekStart, weekStart)
                                                         return (
                                                             <button
@@ -979,15 +993,31 @@ export default function CreativeBenchmarkPage() {
                                                 </div>
                                                 <div className="mt-4 pt-4 border-t border-slate-700">
                                                     <button
-                                                        onClick={() => setSelectedWeekStart(subDays(selectedWeekStart, 7))}
-                                                        className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-700/60 text-slate-200 hover:bg-slate-700 transition-colors text-sm"
+                                                        onClick={() => {
+                                                            if (canGoToPreviousWeek) {
+                                                                setSelectedWeekStart(subDays(selectedWeekStart, 7))
+                                                            }
+                                                        }}
+                                                        disabled={!canGoToPreviousWeek}
+                                                        className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm ${canGoToPreviousWeek
+                                                            ? 'bg-slate-700/60 text-slate-200 hover:bg-slate-700'
+                                                            : 'bg-slate-800/60 text-slate-500 cursor-not-allowed'
+                                                            }`}
                                                     >
                                                         <ChevronLeft className="w-4 h-4" />
                                                         Tuần trước
                                                     </button>
                                                     <button
-                                                        onClick={() => setSelectedWeekStart(addDays(selectedWeekStart, 7))}
-                                                        className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-700/60 text-slate-200 hover:bg-slate-700 transition-colors text-sm mt-2"
+                                                        onClick={() => {
+                                                            if (canGoToNextWeek) {
+                                                                setSelectedWeekStart(addDays(selectedWeekStart, 7))
+                                                            }
+                                                        }}
+                                                        disabled={!canGoToNextWeek}
+                                                        className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm mt-2 ${canGoToNextWeek
+                                                            ? 'bg-slate-700/60 text-slate-200 hover:bg-slate-700'
+                                                            : 'bg-slate-800/60 text-slate-500 cursor-not-allowed'
+                                                            }`}
                                                     >
                                                         Tuần sau
                                                         <ChevronRight className="w-4 h-4" />
