@@ -520,9 +520,6 @@ export default function CreativeBenchmarkPage() {
             benchmarkCpi: dbStats.benchmark_cpi !== null && dbStats.benchmark_cpi !== undefined ? String(dbStats.benchmark_cpi) : '4',
             benchmarkCpm: dbStats.benchmark_cpm !== null && dbStats.benchmark_cpm !== undefined ? String(dbStats.benchmark_cpm) : '12',
         } : localStats)
-        if (dbRows.length === 0 && !dbStats && (hasLocalRows || JSON.stringify(localStats) !== JSON.stringify(makeBlankStats()))) {
-            setMessage({ type: 'error', text: 'Có dữ liệu đang giữ tạm trên trình duyệt. Sau khi chạy migration Supabase, bấm Lưu benchmark để đẩy lên DB.' })
-        }
         setLoadingRows(false)
     }, [loadLocalRows, loadLocalStats, supabase])
 
