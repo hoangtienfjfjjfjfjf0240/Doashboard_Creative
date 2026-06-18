@@ -266,6 +266,25 @@ function hasRowContent(row: BenchmarkRow) {
     )
 }
 
+function hasBenchmarkInput(row: BenchmarkRow) {
+    return Boolean(
+        row.ideaName.trim() ||
+        row.ctr.trim() ||
+        row.cvr.trim() ||
+        row.cpi.trim() ||
+        row.cpm.trim()
+    )
+}
+
+function syncBenchmarkRow(row: BenchmarkRow): BenchmarkRow {
+    const passed = hasBenchmarkInput(row)
+    return {
+        ...row,
+        passed,
+        win: passed ? row.win : false,
+    }
+}
+
 function getStorageKey(appId: string, weekStart: string) {
     return `creative-benchmark:${appId}:${weekStart}`
 }
@@ -373,10 +392,11 @@ export default function CreativeBenchmarkPage() {
     const selectedApp = benchmarkApps.find(app => app.id === selectedAppId) || benchmarkApps[0] || BENCHMARK_APPS[0]
     const selectedWeekKey = toDateKey(selectedWeekStart)
     const selectedWeekEnd = addDays(selectedWeekStart, 4)
-    const filledRows = rows.filter(row => row.ideaName.trim())
-    const passedCount = filledRows.filter(row => row.passed).length
-    const videosCreated = toNumber(weeklyStats.videosCreated) || filledRows.length
-    const funnelOneCount = toNumber(weeklyStats.funnelOneCount)
+    const normalizedRows = useMemo(() => rows.map(syncBenchmarkRow), [rows])
+    const filledRows = normalizedRows.filter(hasBenchmarkInput)
+    const passedCount = filledRows.length
+    const videosCreated = toNumber(weeklyStats.videosCreated)
+    const funnelOneCount = passedCount
     const winCount = filledRows.filter(row => row.win).length
     const benchmarkRate = videosCreated > 0 ? Math.round((passedCount / videosCreated) * 100) : 0
     const funnelOneRate = videosCreated > 0 ? Math.round((funnelOneCount / videosCreated) * 100) : 0
@@ -387,7 +407,7 @@ export default function CreativeBenchmarkPage() {
             const raw = localStorage.getItem(getStorageKey(appId, weekStartKey))
             if (!raw) return makeBlankRows()
             const parsed = JSON.parse(raw) as BenchmarkRow[]
-            return parsed.length > 0 ? parsed.map(row => makeRow(row)) : makeBlankRows()
+            return parsed.length > 0 ? parsed.map(row => makeRow(syncBenchmarkRow(row))) : makeBlankRows()
         } catch {
             return makeBlankRows()
         }
@@ -539,7 +559,17 @@ export default function CreativeBenchmarkPage() {
     }, [])
 
     const updateRow = (id: string, field: keyof BenchmarkRow, value: string | boolean) => {
-        setRows(prev => prev.map(row => (row.id === id ? { ...row, [field]: value } : row)))
+        setRows(prev => prev.map(row => {
+            if (row.id !== id) {
+                return row
+            }
+
+            if (field === 'passed') {
+                return syncBenchmarkRow(row)
+            }
+
+            return syncBenchmarkRow({ ...row, [field]: value })
+        }))
     }
 
     const addRow = () => {
@@ -554,8 +584,12 @@ export default function CreativeBenchmarkPage() {
     }
 
     const saveRows = async () => {
-        const rowsToSave = rows.filter(hasRowContent)
-        const statsToSave: WeeklyStats = { ...weeklyStats, winCount: String(winCount) }
+        const rowsToSave = normalizedRows.filter(hasRowContent)
+        const statsToSave: WeeklyStats = {
+            ...weeklyStats,
+            funnelOneCount: String(funnelOneCount),
+            winCount: String(winCount),
+        }
         setSaving(true)
         setMessage(null)
 
@@ -615,7 +649,7 @@ export default function CreativeBenchmarkPage() {
                 app_id: selectedAppId,
                 week_start_date: selectedWeekKey,
                 videos_created: toNumber(weeklyStats.videosCreated),
-                funnel_one_count: toNumber(weeklyStats.funnelOneCount),
+                funnel_one_count: funnelOneCount,
                 win_count: winCount,
                 benchmark_market: weeklyStats.benchmarkMarket || 'US/Global',
                 benchmark_ctr: parseMetric(weeklyStats.benchmarkCtr),
@@ -650,7 +684,7 @@ export default function CreativeBenchmarkPage() {
 
         if (error) {
             if (previousLocalRows.length > 0) {
-                setRows(previousLocalRows.map(row => makeRow({ ...row, passed: false, win: false })))
+                setRows(previousLocalRows.map(row => makeRow(syncBenchmarkRow({ ...row, win: false }))))
                 setMessage({ type: 'error', text: 'Đã copy từ dữ liệu tạm trên trình duyệt. Supabase vẫn chưa sẵn sàng để đọc benchmark.' })
                 return
             }
@@ -661,7 +695,7 @@ export default function CreativeBenchmarkPage() {
         const previousRows = (data as Omit<DbBenchmarkEntry, 'id' | 'app_id' | 'week_start_date'>[] | null || [])
         if (previousRows.length === 0) {
             if (previousLocalRows.length > 0) {
-                setRows(previousLocalRows.map(row => makeRow({ ...row, passed: false, win: false })))
+                setRows(previousLocalRows.map(row => makeRow(syncBenchmarkRow({ ...row, win: false }))))
                 setMessage({ type: 'success', text: 'Đã copy từ dữ liệu tạm tuần trước' })
                 return
             }
@@ -677,7 +711,6 @@ export default function CreativeBenchmarkPage() {
                 cvr: formatMetric(row.cvr),
                 cpi: formatMetric(row.cpi),
                 cpm: formatMetric(row.cpm),
-                passed: false,
                 win: false,
             })
         ))
@@ -1118,16 +1151,15 @@ export default function CreativeBenchmarkPage() {
                                         label="Video tạo theo tuần"
                                         value={weeklyStats.videosCreated}
                                         onChange={value => updateWeeklyStat('videosCreated', value)}
-                                        fallbackValue={filledRows.length}
+                                        fallbackValue={0}
                                     />
                                     <WeeklyStatDisplay
                                         label="Video đạt benchmark"
                                         value={`${passedCount}/${videosCreated || 0} (${benchmarkRate}%)`}
                                     />
-                                    <WeeklyStatInput
+                                    <WeeklyStatDisplay
                                         label="Qua phễu 1"
-                                        value={weeklyStats.funnelOneCount}
-                                        onChange={value => updateWeeklyStat('funnelOneCount', value)}
+                                        value={`${funnelOneCount}/${videosCreated || 0}`}
                                         suffix={`${funnelOneRate}%`}
                                     />
                                     <WeeklyStatDisplay
@@ -1182,7 +1214,7 @@ export default function CreativeBenchmarkPage() {
                                                         <div className="inline-flex w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
                                                     </td>
                                                 </tr>
-                                            ) : rows.map(row => (
+                                            ) : normalizedRows.map(row => (
                                                 <tr key={row.id} className="hover:bg-slate-800/40">
                                                     <td className="px-3 py-2">
                                                         <input
@@ -1204,10 +1236,11 @@ export default function CreativeBenchmarkPage() {
                                                     <MetricCell value={row.cpm} onChange={value => updateRow(row.id, 'cpm', value)} placeholder="1.58" prefix="$" />
                                                     <td className="px-3 py-2 text-center">
                                                         <button
-                                                            onClick={() => updateRow(row.id, 'passed', !row.passed)}
-                                                            className={`mx-auto w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${row.passed
+                                                            type="button"
+                                                            disabled
+                                                            className={`mx-auto w-8 h-8 rounded-lg border flex items-center justify-center cursor-default transition-colors ${row.passed
                                                                 ? 'bg-emerald-500 border-emerald-400 text-white'
-                                                                : 'bg-slate-950/70 border-slate-700 text-slate-500 hover:border-slate-500'
+                                                                : 'bg-slate-950/70 border-slate-700 text-slate-500'
                                                                 }`}
                                                             aria-label="Đạt benchmark"
                                                         >
@@ -1216,10 +1249,14 @@ export default function CreativeBenchmarkPage() {
                                                     </td>
                                                     <td className="px-3 py-2 text-center">
                                                         <button
+                                                            type="button"
                                                             onClick={() => updateRow(row.id, 'win', !row.win)}
+                                                            disabled={!row.passed}
                                                             className={`mx-auto w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${row.win
                                                                 ? 'bg-amber-500 border-amber-400 text-white'
-                                                                : 'bg-slate-950/70 border-slate-700 text-slate-500 hover:border-slate-500'
+                                                                : row.passed
+                                                                    ? 'bg-slate-950/70 border-slate-700 text-slate-500 hover:border-slate-500'
+                                                                    : 'bg-slate-950/70 border-slate-800 text-slate-700 cursor-not-allowed'
                                                                 }`}
                                                             aria-label="Win sau phễu 1"
                                                         >
