@@ -118,6 +118,10 @@ type BenchmarkAppDeleteHistoryRecord = {
     isCustom: boolean
 }
 
+type SaveRowsOptions = {
+    silent?: boolean
+}
+
 const BENCHMARK_APPS: BenchmarkApp[] = [
     {
         id: 'app-store-1641040766',
@@ -230,6 +234,7 @@ const QUICK_WEEKS = [
 ]
 
 const MARKET_OPTIONS = ['US/Global', 'US', 'Global', 'VN', 'TH', 'ID', 'BR', 'MX', 'JP', 'KR']
+const AUTO_SAVE_INTERVAL_MS = 60_000
 
 function toDateKey(date: Date) {
     return format(date, 'yyyy-MM-dd')
@@ -330,6 +335,20 @@ function makeBlankStats(): WeeklyStats {
     }
 }
 
+function hasStatsContent(stats: WeeklyStats) {
+    const defaultStats = makeBlankStats()
+    return (
+        stats.videosCreated !== defaultStats.videosCreated
+        || stats.funnelOneCount !== defaultStats.funnelOneCount
+        || stats.winCount !== defaultStats.winCount
+        || stats.benchmarkMarket !== defaultStats.benchmarkMarket
+        || stats.benchmarkCtr !== defaultStats.benchmarkCtr
+        || stats.benchmarkCvr !== defaultStats.benchmarkCvr
+        || stats.benchmarkCpi !== defaultStats.benchmarkCpi
+        || stats.benchmarkCpm !== defaultStats.benchmarkCpm
+    )
+}
+
 function toNumber(value: string) {
     const parsed = Number(value)
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
@@ -407,8 +426,12 @@ export default function CreativeBenchmarkPage() {
     const [, setStorageMode] = useState<StorageMode>('checking')
     const [loadingRows, setLoadingRows] = useState(true)
     const [saving, setSaving] = useState(false)
+    const [isDirty, setIsDirty] = useState(false)
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
     const weekPickerRef = useRef<HTMLDivElement>(null)
+    const dirtyVersionRef = useRef(0)
+    const saveRowsRef = useRef<((options?: SaveRowsOptions) => Promise<void>) | null>(null)
+    const savingRef = useRef(false)
     const canDeleteApps = user?.role === 'admin'
         || user?.role === 'manager'
         || user?.roleCreative === 'admin'
@@ -433,6 +456,22 @@ export default function CreativeBenchmarkPage() {
     const benchmarkRate = videosCreated > 0 ? Math.round((passedCount / videosCreated) * 100) : 0
     const funnelOneRate = videosCreated > 0 ? Math.round((funnelOneCount / videosCreated) * 100) : 0
     const winRate = funnelOneCount > 0 ? Math.round((winCount / funnelOneCount) * 100) : 0
+
+    const setDirtyState = useCallback((nextDirty: boolean) => {
+        if (!nextDirty) {
+            dirtyVersionRef.current = 0
+            setIsDirty(false)
+            return
+        }
+
+        dirtyVersionRef.current = Math.max(dirtyVersionRef.current, 1)
+        setIsDirty(true)
+    }, [])
+
+    const markDirty = useCallback(() => {
+        dirtyVersionRef.current += 1
+        setIsDirty(true)
+    }, [])
 
     const loadLocalRows = useCallback((appId: string, weekStartKey: string) => {
         try {
@@ -531,8 +570,11 @@ export default function CreativeBenchmarkPage() {
 
         if (error || statsResult.error) {
             setStorageMode('local')
-            setRows(loadLocalRows(appId, weekStartKey))
-            setWeeklyStats(loadLocalStats(appId, weekStartKey))
+            const fallbackRows = loadLocalRows(appId, weekStartKey)
+            const fallbackStats = loadLocalStats(appId, weekStartKey)
+            setRows(fallbackRows)
+            setWeeklyStats(fallbackStats)
+            setDirtyState(fallbackRows.some(hasRowContent) || hasStatsContent(fallbackStats))
             setMessage({ type: 'error', text: getSupabaseSaveError(error || statsResult.error) })
             setLoadingRows(false)
             return
@@ -567,8 +609,9 @@ export default function CreativeBenchmarkPage() {
             benchmarkCpi: dbStats.benchmark_cpi !== null && dbStats.benchmark_cpi !== undefined ? String(dbStats.benchmark_cpi) : '4',
             benchmarkCpm: dbStats.benchmark_cpm !== null && dbStats.benchmark_cpm !== undefined ? String(dbStats.benchmark_cpm) : '12',
         } : localStats)
+        setDirtyState((dbRows.length === 0 && hasLocalRows) || (!dbStats && hasStatsContent(localStats)))
         setLoadingRows(false)
-    }, [loadLocalRows, loadLocalStats, supabase])
+    }, [loadLocalRows, loadLocalStats, setDirtyState, supabase])
 
     useEffect(() => {
         if (!userLoading && !user) {
@@ -603,39 +646,60 @@ export default function CreativeBenchmarkPage() {
     }, [])
 
     const updateRow = (id: string, field: keyof BenchmarkRow, value: string | boolean) => {
-        setRows(prev => prev.map(row => {
-            if (row.id !== id) {
-                return row
-            }
+        setRows(prev => {
+            const next = prev.map(row => {
+                if (row.id !== id) {
+                    return row
+                }
 
-            if (field === 'passed') {
-                return syncBenchmarkRow(row)
-            }
+                if (field === 'passed') {
+                    return syncBenchmarkRow(row)
+                }
 
-            return syncBenchmarkRow({ ...row, [field]: value })
-        }))
+                return syncBenchmarkRow({ ...row, [field]: value })
+            })
+            saveLocalRows(selectedAppId, selectedWeekKey, next)
+            return next
+        })
+        markDirty()
     }
 
     const addRow = () => {
-        setRows(prev => [...prev, makeRow()])
+        setRows(prev => {
+            const next = [...prev, makeRow()]
+            saveLocalRows(selectedAppId, selectedWeekKey, next)
+            return next
+        })
+        markDirty()
     }
 
     const removeRow = (id: string) => {
         setRows(prev => {
             const next = prev.filter(row => row.id !== id)
-            return next.length > 0 ? next : makeBlankRows(1)
+            const nextRows = next.length > 0 ? next : makeBlankRows(1)
+            saveLocalRows(selectedAppId, selectedWeekKey, nextRows)
+            return nextRows
         })
+        markDirty()
     }
 
-    const saveRows = async () => {
+    const saveRows = useCallback(async ({ silent = false }: SaveRowsOptions = {}) => {
+        if (savingRef.current) {
+            return
+        }
+
+        const saveVersion = dirtyVersionRef.current
         const rowsToSave = normalizedRows.filter(hasRowContent)
         const statsToSave: WeeklyStats = {
             ...weeklyStats,
             funnelOneCount: String(funnelOneCount),
             winCount: String(winCount),
         }
+        savingRef.current = true
         setSaving(true)
-        setMessage(null)
+        if (!silent) {
+            setMessage(null)
+        }
 
         const { error: deleteError } = await supabase
             .from('creative_benchmark_entries')
@@ -654,6 +718,7 @@ export default function CreativeBenchmarkPage() {
             saveLocalRows(selectedAppId, selectedWeekKey, rowsToSave)
             saveLocalStats(selectedAppId, selectedWeekKey, statsToSave)
             setMessage({ type: 'error', text: getSupabaseSaveError(deleteError || statsDeleteError) })
+            savingRef.current = false
             setSaving(false)
             return
         }
@@ -682,6 +747,7 @@ export default function CreativeBenchmarkPage() {
                 saveLocalRows(selectedAppId, selectedWeekKey, rowsToSave)
                 saveLocalStats(selectedAppId, selectedWeekKey, statsToSave)
                 setMessage({ type: 'error', text: getSupabaseSaveError(insertError) })
+                savingRef.current = false
                 setSaving(false)
                 return
             }
@@ -707,13 +773,54 @@ export default function CreativeBenchmarkPage() {
             saveLocalRows(selectedAppId, selectedWeekKey, rowsToSave)
             saveLocalStats(selectedAppId, selectedWeekKey, statsToSave)
             setMessage({ type: 'error', text: getSupabaseSaveError(statsInsertError) })
+            savingRef.current = false
             setSaving(false)
             return
         }
 
-        setMessage({ type: 'success', text: 'Đã lưu benchmark' })
+        setStorageMode('database')
+        saveLocalRows(selectedAppId, selectedWeekKey, rowsToSave)
+        saveLocalStats(selectedAppId, selectedWeekKey, statsToSave)
+        if (dirtyVersionRef.current === saveVersion) {
+            setDirtyState(false)
+        }
+        if (silent) {
+            setMessage(current => current?.type === 'error' ? null : current)
+        } else {
+            setMessage({ type: 'success', text: 'Đã lưu benchmark' })
+        }
+        savingRef.current = false
         setSaving(false)
-    }
+    }, [
+        funnelOneCount,
+        normalizedRows,
+        saveLocalRows,
+        saveLocalStats,
+        selectedAppId,
+        selectedWeekKey,
+        setDirtyState,
+        supabase,
+        weeklyStats,
+        winCount,
+    ])
+
+    useEffect(() => {
+        saveRowsRef.current = saveRows
+    }, [saveRows])
+
+    useEffect(() => {
+        if (!isDirty || loadingRows || userLoading || !user) {
+            return
+        }
+
+        const intervalId = window.setInterval(() => {
+            if (!savingRef.current) {
+                void saveRowsRef.current?.({ silent: true })
+            }
+        }, AUTO_SAVE_INTERVAL_MS)
+
+        return () => window.clearInterval(intervalId)
+    }, [isDirty, loadingRows, user, userLoading])
 
     const copyPreviousWeek = async () => {
         const previousWeekKey = toDateKey(subDays(selectedWeekStart, 7))
@@ -728,7 +835,10 @@ export default function CreativeBenchmarkPage() {
 
         if (error) {
             if (previousLocalRows.length > 0) {
-                setRows(previousLocalRows.map(row => makeRow(syncBenchmarkRow({ ...row, win: false }))))
+                const nextRows = previousLocalRows.map(row => makeRow(syncBenchmarkRow({ ...row, win: false })))
+                setRows(nextRows)
+                saveLocalRows(selectedAppId, selectedWeekKey, nextRows)
+                markDirty()
                 setMessage({ type: 'error', text: 'Đã copy từ dữ liệu tạm trên trình duyệt. Supabase vẫn chưa sẵn sàng để đọc benchmark.' })
                 return
             }
@@ -739,7 +849,10 @@ export default function CreativeBenchmarkPage() {
         const previousRows = (data as Omit<DbBenchmarkEntry, 'id' | 'app_id' | 'week_start_date'>[] | null || [])
         if (previousRows.length === 0) {
             if (previousLocalRows.length > 0) {
-                setRows(previousLocalRows.map(row => makeRow(syncBenchmarkRow({ ...row, win: false }))))
+                const nextRows = previousLocalRows.map(row => makeRow(syncBenchmarkRow({ ...row, win: false })))
+                setRows(nextRows)
+                saveLocalRows(selectedAppId, selectedWeekKey, nextRows)
+                markDirty()
                 setMessage({ type: 'success', text: 'Đã copy từ dữ liệu tạm tuần trước' })
                 return
             }
@@ -747,7 +860,7 @@ export default function CreativeBenchmarkPage() {
             return
         }
 
-        setRows(previousRows.map(row =>
+        const nextRows = previousRows.map(row =>
             makeRow({
                 ideaName: row.idea_name || '',
                 market: row.market || '',
@@ -757,7 +870,10 @@ export default function CreativeBenchmarkPage() {
                 cpm: formatMetric(row.cpm),
                 win: false,
             })
-        ))
+        )
+        setRows(nextRows)
+        saveLocalRows(selectedAppId, selectedWeekKey, nextRows)
+        markDirty()
         setMessage({ type: 'success', text: 'Đã copy từ tuần trước' })
     }
 
@@ -772,6 +888,7 @@ export default function CreativeBenchmarkPage() {
             saveLocalStats(selectedAppId, selectedWeekKey, next)
             return next
         })
+        markDirty()
     }
 
     const detectAppFromLink = async () => {
@@ -1037,7 +1154,9 @@ export default function CreativeBenchmarkPage() {
                             </button>
 
                             <button
-                                onClick={saveRows}
+                                onClick={() => {
+                                    void saveRows()
+                                }}
                                 disabled={saving}
                                 className="h-10 px-4 rounded-xl bg-purple-500 hover:bg-purple-600 disabled:opacity-60 disabled:cursor-not-allowed text-sm font-semibold text-white transition-colors flex items-center gap-2"
                             >
@@ -1450,17 +1569,22 @@ function MarketSelect({
     const className = tone === 'benchmark'
         ? 'w-full h-9 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 text-sm font-semibold text-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-400'
         : 'w-full h-9 bg-slate-950/70 border border-slate-800 rounded-lg px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500'
+    const optionStyle = {
+        backgroundColor: '#0f172a',
+        color: tone === 'benchmark' ? '#fef3c7' : '#ffffff',
+    }
 
     return (
         <select
             value={value}
             onChange={event => onChange(event.target.value)}
             className={className}
+            style={{ colorScheme: 'dark' }}
         >
-            {tone === 'default' && <option value="">Chọn</option>}
-            {customValue && <option value={customValue}>{customValue}</option>}
+            {tone === 'default' && <option value="" style={optionStyle}>Chọn</option>}
+            {customValue && <option value={customValue} style={optionStyle}>{customValue}</option>}
             {MARKET_OPTIONS.map(option => (
-                <option key={option} value={option}>{option}</option>
+                <option key={option} value={option} style={optionStyle}>{option}</option>
             ))}
         </select>
     )
