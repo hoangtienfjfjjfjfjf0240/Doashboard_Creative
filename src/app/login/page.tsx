@@ -40,6 +40,8 @@ export default function LoginPage() {
                         // If user has graphic design role, go to graphic dashboard
                         if (profile?.role_graphic && profile.role_graphic !== 'none') {
                             router.push('/graphic-dashboard')
+                        } else if (profile?.role === 'idea_creator') {
+                            router.push('/creative-benchmark')
                         } else {
                             router.push('/dashboard')
                         }

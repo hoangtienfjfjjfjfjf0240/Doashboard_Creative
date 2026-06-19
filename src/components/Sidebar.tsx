@@ -3,13 +3,14 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { LayoutTemplate, Target, Users, Calendar, History, Film, Palette, BarChart3 } from 'lucide-react'
+import { LayoutTemplate, Target, Users, Calendar, History, Film, Palette, Lightbulb, BarChart3, TrendingUp } from 'lucide-react'
 import { useUser } from '@/contexts/UserContext'
 
 export default function Sidebar() {
     const pathname = usePathname()
     const { user, canAccessProject } = useUser()
     const userRole = user?.role || 'member'
+    const creativeRole = user?.role === 'admin' ? 'admin' : user?.roleCreative || 'none'
 
     const creativeItems = [
         { title: 'Overview', path: '/dashboard', icon: LayoutTemplate },
@@ -23,13 +24,22 @@ export default function Sidebar() {
         { title: 'Lịch sử Due Date', path: '/graphic-history', icon: History },
     ]
 
-    const commonItems = [
+    const ideaCreatorItems = [
         {
             title: 'Benchmark Creative',
             path: '/creative-benchmark',
             icon: BarChart3,
-            roles: ['member', 'admin', 'manager', 'editor'],
+            roles: ['member', 'admin', 'manager', 'editor', 'idea_creator'],
         },
+        {
+            title: 'Signal Dashboard',
+            path: '/creative-benchmark-dashboard',
+            icon: TrendingUp,
+            roles: ['member', 'admin', 'manager', 'editor', 'idea_creator'],
+        },
+    ]
+
+    const commonItems = [
         {
             title: 'Ngày Nghỉ',
             path: '/day-offs',
@@ -44,12 +54,17 @@ export default function Sidebar() {
         },
     ]
 
+    const filteredIdeaCreatorItems = ideaCreatorItems.filter(item =>
+        item.roles.includes(creativeRole) || userRole === 'admin'
+    )
+
     const filteredCommonItems = commonItems.filter(item =>
         item.roles.includes(userRole) || userRole === 'admin'
     )
 
-    const showCreative = canAccessProject('creative')
+    const showCreative = canAccessProject('creative') && creativeRole !== 'idea_creator'
     const showGraphic = canAccessProject('graphic')
+    const showIdeaCreator = userRole === 'admin' || creativeRole !== 'none'
 
     const renderMenuItem = (item: { title: string; path: string; icon: React.ComponentType<{ className?: string }> }) => {
         const isActive = pathname === item.path
@@ -113,6 +128,17 @@ export default function Sidebar() {
                             <span>Graphic Design</span>
                         </div>
                         {graphicItems.map(renderMenuItem)}
+                        <div className="my-3 border-b border-slate-800/70" />
+                    </>
+                )}
+
+                {showIdeaCreator && filteredIdeaCreatorItems.length > 0 && (
+                    <>
+                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 px-2 pt-1">
+                            <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Idea Creator</span>
+                        </div>
+                        {filteredIdeaCreatorItems.map(renderMenuItem)}
                         <div className="my-3 border-b border-slate-800/70" />
                     </>
                 )}

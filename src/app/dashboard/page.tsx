@@ -31,7 +31,7 @@ export default function DashboardPage() {
     const syncInFlightRef = useRef(false)
     const syncRetryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const [lastSync, setLastSync] = useState<string>()
-    const [user, setUser] = useState<{ email: string; role: string; fullName: string; asanaEmail: string; asanaName: string } | null>(null)
+    const [user, setUser] = useState<{ email: string; role: string; roleCreative: string; fullName: string; asanaEmail: string; asanaName: string } | null>(null)
 
     // Filter state
     const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
@@ -72,9 +72,14 @@ export default function DashboardPage() {
             if (user) {
                 const { data: profile } = await supabase
                     .from('profiles')
-                    .select('role, full_name, asana_email, asana_name')
+                    .select('role, role_creative, full_name, asana_email, asana_name')
                     .eq('id', user.id)
                     .single()
+
+                if ((profile?.role_creative || profile?.role) === 'idea_creator') {
+                    router.push('/creative-benchmark')
+                    return
+                }
 
                 // Use asana_email from profile, or fallback to login email
                 const asanaEmail = profile?.asana_email || user.email || ''
@@ -83,6 +88,7 @@ export default function DashboardPage() {
                 setUser({
                     email: user.email || '',
                     role: profile?.role || 'member',
+                    roleCreative: profile?.role_creative || profile?.role || 'member',
                     fullName: profile?.full_name || '',
                     asanaEmail: asanaEmail,
                     asanaName: asanaName,

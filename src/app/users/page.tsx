@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Save, Users, Shield, User, Loader2, Eye } from 'lucide-react'
+import { Save, Users, Shield, User, Loader2, Eye, Lightbulb } from 'lucide-react'
 import DashboardLayout from '@/components/DashboardLayout'
 
 interface UserProfile {
@@ -89,6 +89,7 @@ export default function UsersPage() {
         switch (role) {
             case 'admin': return 'bg-red-500/20 text-red-300 border-red-500/30'
             case 'manager': return 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+            case 'idea_creator': return 'bg-violet-500/20 text-violet-300 border-violet-500/30'
             default: return 'bg-slate-500/20 text-slate-300 border-slate-500/30'
         }
     }
@@ -97,6 +98,7 @@ export default function UsersPage() {
         switch (role) {
             case 'admin': return Shield
             case 'manager': return Eye
+            case 'idea_creator': return Lightbulb
             default: return User
         }
     }
@@ -209,6 +211,7 @@ export default function UsersPage() {
                                                         <option value="admin">Creative Manager</option>
                                                         <option value="manager">Admin Creative</option>
                                                         <option value="member">Member</option>
+                                                        <option value="idea_creator">Idea Creator</option>
                                                         <option value="none">None</option>
                                                     </select>
                                                 </td>

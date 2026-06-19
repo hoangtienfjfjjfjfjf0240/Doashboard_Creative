@@ -43,12 +43,17 @@ export default function HistoryPage() {
             // Check role
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('role, full_name, asana_name')
+                .select('role, role_creative, full_name, asana_name')
                 .eq('id', user.id)
                 .single()
 
             if (!profile) {
                 router.push('/dashboard')
+                return
+            }
+
+            if ((profile.role_creative || profile.role) === 'idea_creator') {
+                router.push('/creative-benchmark')
                 return
             }
 

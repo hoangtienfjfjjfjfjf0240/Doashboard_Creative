@@ -406,6 +406,8 @@ export default function CreativeBenchmarkPage() {
     const router = useRouter()
     const supabase = useMemo(() => createClient(), [])
     const { user, loading: userLoading } = useUser()
+    const canAccessIdeaCreator = user?.role === 'admin'
+        || (Boolean(user?.roleCreative) && user?.roleCreative !== 'none')
     const currentWeekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), [])
     const timelineWeeks = useMemo(() => generateTimelineWeeks(currentWeekStart), [currentWeekStart])
     const weeksByMonth = useMemo(() => groupWeeksByMonth(timelineWeeks), [timelineWeeks])
@@ -617,7 +619,10 @@ export default function CreativeBenchmarkPage() {
         if (!userLoading && !user) {
             router.push('/login')
         }
-    }, [router, user, userLoading])
+        if (!userLoading && user && !canAccessIdeaCreator) {
+            router.push('/dashboard')
+        }
+    }, [canAccessIdeaCreator, router, user, userLoading])
 
     useEffect(() => {
         setCustomApps(loadCustomApps())
@@ -1000,7 +1005,7 @@ export default function CreativeBenchmarkPage() {
         setMessage({ type: 'success', text: 'Đã xóa app benchmark' })
     }
 
-    if (userLoading || !user) {
+    if (userLoading || !user || !canAccessIdeaCreator) {
         return (
             <DashboardLayout hideAgent>
                 <div className="min-h-screen bg-slate-950 flex items-center justify-center">

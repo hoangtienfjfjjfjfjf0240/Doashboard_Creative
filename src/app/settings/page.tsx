@@ -80,7 +80,7 @@ export default function SettingsPage() {
 
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
-    const [user, setUser] = useState<{ role: string; fullName: string; asanaName: string; email: string } | null>(null)
+    const [user, setUser] = useState<{ role: string; roleCreative: string; fullName: string; asanaName: string; email: string } | null>(null)
     const [assignees, setAssignees] = useState<string[]>([])
     const [targets, setTargets] = useState<AssigneeTarget[]>([])
     const [defaultTarget, setDefaultTarget] = useState('160')
@@ -126,13 +126,19 @@ export default function SettingsPage() {
 
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('role, full_name, asana_name')
+                .select('role, role_creative, full_name, asana_name')
                 .eq('id', authUser.id)
                 .single()
 
             const role = profile?.role || 'member'
+            const roleCreative = profile?.role_creative || role
+            if (roleCreative === 'idea_creator') {
+                router.push('/creative-benchmark')
+                return
+            }
             setUser({
                 role,
+                roleCreative,
                 fullName: profile?.full_name || '',
                 asanaName: profile?.asana_name || profile?.full_name || '',
                 email: authUser.email || '',

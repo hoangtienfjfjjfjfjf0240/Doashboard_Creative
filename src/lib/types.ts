@@ -57,7 +57,7 @@ export interface Profile {
     email: string
     full_name: string | null
     avatar_url: string | null
-    role: 'admin' | 'lead' | 'manager' | 'member' | 'none'
+    role: 'admin' | 'lead' | 'manager' | 'member' | 'idea_creator' | 'none'
     asana_email?: string | null
     asana_name?: string | null
     role_creative?: string
