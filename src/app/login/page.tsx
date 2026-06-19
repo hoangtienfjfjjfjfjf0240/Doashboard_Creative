@@ -33,14 +33,14 @@ export default function LoginPage() {
                     if (authUser) {
                         const { data: profile } = await supabase
                             .from('profiles')
-                            .select('role, role_graphic')
+                            .select('role, role_creative, role_graphic')
                             .eq('id', authUser.id)
                             .single()
 
                         // If user has graphic design role, go to graphic dashboard
                         if (profile?.role_graphic && profile.role_graphic !== 'none') {
                             router.push('/graphic-dashboard')
-                        } else if (profile?.role === 'idea_creator') {
+                        } else if ((profile?.role_creative || profile?.role) === 'idea_creator') {
                             router.push('/creative-benchmark')
                         } else {
                             router.push('/dashboard')

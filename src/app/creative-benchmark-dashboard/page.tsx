@@ -64,6 +64,8 @@ type DbWeeklyStatsRow = {
     benchmark_cvr: number | null
     benchmark_cpi: number | null
     benchmark_cpm: number | null
+    created_by: string | null
+    created_at: string | null
 }
 
 type AppSignalMetric = {
@@ -88,6 +90,15 @@ type SignalChartDatum = {
     numerator: number
     denominator: number
     fill: string
+}
+
+type DeadlineStats = {
+    weekStartDate: string
+    totalIdeaCreators: number
+    submittedCount: number
+    onTimeCount: number
+    lateCount: number
+    pendingCount: number
 }
 
 const BENCHMARK_APPS: BenchmarkApp[] = [
@@ -529,11 +540,12 @@ export default function CreativeBenchmarkDashboardPage() {
 
     const [selectedWeekStart, setSelectedWeekStart] = useState(currentWeekStart)
     const [showWeekPicker, setShowWeekPicker] = useState(false)
-    const [customApps, setCustomApps] = useState<BenchmarkApp[]>([])
-    const [hiddenAppIds, setHiddenAppIds] = useState<string[]>([])
+    const [customApps] = useState<BenchmarkApp[]>(() => typeof window === 'undefined' ? [] : loadStoredApps())
+    const [hiddenAppIds] = useState<string[]>(() => typeof window === 'undefined' ? [] : loadHiddenAppIds())
     const [loadingData, setLoadingData] = useState(true)
     const [entries, setEntries] = useState<DbBenchmarkEntrySummary[]>([])
     const [weeklyStats, setWeeklyStats] = useState<DbWeeklyStatsRow[]>([])
+    const [deadlineStats, setDeadlineStats] = useState<DeadlineStats | null>(null)
     const [message, setMessage] = useState<{ type: 'error' | 'info'; text: string } | null>(null)
     const weekPickerRef = useRef<HTMLDivElement>(null)
 
@@ -552,20 +564,44 @@ export default function CreativeBenchmarkDashboardPage() {
         setLoadingData(true)
         setMessage(null)
 
-        const [entriesResult, statsResult] = await Promise.all([
+        const deadlineRequest = fetch(`/api/creative-benchmark/deadline-stats?weekStartDate=${selectedWeekKey}`, {
+            cache: 'no-store',
+        })
+            .then(async response => {
+                const payload = await response.json().catch(() => null)
+                if (!response.ok) {
+                    return {
+                        data: null,
+                        error: payload?.error || 'Khong tai duoc ti le deadline.',
+                    }
+                }
+
+                return {
+                    data: payload as DeadlineStats,
+                    error: null,
+                }
+            })
+            .catch(error => ({
+                data: null,
+                error: error instanceof Error ? error.message : 'Khong tai duoc ti le deadline.',
+            }))
+
+        const [entriesResult, statsResult, deadlineResult] = await Promise.all([
             supabase
                 .from('creative_benchmark_entries')
                 .select('app_id, passed, win')
                 .eq('week_start_date', selectedWeekKey),
             supabase
                 .from('creative_benchmark_weekly_stats')
-                .select('app_id, videos_created, benchmark_market, benchmark_ctr, benchmark_cvr, benchmark_cpi, benchmark_cpm')
+                .select('app_id, videos_created, benchmark_market, benchmark_ctr, benchmark_cvr, benchmark_cpi, benchmark_cpm, created_by, created_at')
                 .eq('week_start_date', selectedWeekKey),
+            deadlineRequest,
         ])
 
         if (entriesResult.error || statsResult.error) {
             setEntries([])
             setWeeklyStats([])
+            setDeadlineStats(null)
             setMessage({ type: 'error', text: getFetchErrorMessage(entriesResult.error || statsResult.error) })
             setLoadingData(false)
             return
@@ -573,6 +609,8 @@ export default function CreativeBenchmarkDashboardPage() {
 
         setEntries((entriesResult.data as DbBenchmarkEntrySummary[] | null) || [])
         setWeeklyStats((statsResult.data as DbWeeklyStatsRow[] | null) || [])
+        setDeadlineStats(deadlineResult.data)
+        setMessage(deadlineResult.error ? { type: 'info', text: deadlineResult.error } : null)
         setLoadingData(false)
     }, [selectedWeekKey, supabase])
 
@@ -586,13 +624,12 @@ export default function CreativeBenchmarkDashboardPage() {
     }, [canAccessIdeaCreator, router, user, userLoading])
 
     useEffect(() => {
-        setCustomApps(loadStoredApps())
-        setHiddenAppIds(loadHiddenAppIds())
-    }, [])
-
-    useEffect(() => {
         if (!user) return
-        void loadDashboardData()
+        const timeoutId = window.setTimeout(() => {
+            void loadDashboardData()
+        }, 0)
+
+        return () => window.clearTimeout(timeoutId)
     }, [loadDashboardData, user])
 
     useEffect(() => {
@@ -756,6 +793,15 @@ export default function CreativeBenchmarkDashboardPage() {
     const overallWinRate = totals.funnelOneCount > 0
         ? Math.round((totals.winCount / totals.funnelOneCount) * 100)
         : 0
+    const deadlineRate = deadlineStats && deadlineStats.totalIdeaCreators > 0
+        ? Math.round((deadlineStats.onTimeCount / deadlineStats.totalIdeaCreators) * 100)
+        : 0
+    const deadlineValue = deadlineStats
+        ? `${deadlineStats.onTimeCount}/${deadlineStats.totalIdeaCreators} (${deadlineRate}%)`
+        : '--'
+    const deadlineHint = deadlineStats
+        ? `Idea Creator luu truoc 23:59 thu 2. Tre: ${deadlineStats.lateCount}, chua nhap: ${deadlineStats.pendingCount}.`
+        : 'Chua tai duoc ti le deadline thu 2.'
 
     if (userLoading || !user || !canAccessIdeaCreator) {
         return (
@@ -920,7 +966,7 @@ export default function CreativeBenchmarkDashboardPage() {
                         </div>
                     )}
 
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
                         <KpiCard
                             label="App có dữ liệu"
                             value={String(appMetrics.length)}
@@ -944,6 +990,12 @@ export default function CreativeBenchmarkDashboardPage() {
                             value={`${totals.winCount} (${overallWinRate}%)`}
                             hint={topWinApps[0] ? `Top win hiện tại: ${topWinApps[0].app.name}` : 'Chưa có app có win trong tuần này'}
                             accentClass="bg-amber-500/10 text-amber-100"
+                        />
+                        <KpiCard
+                            label="Dung deadline T2"
+                            value={deadlineValue}
+                            hint={deadlineHint}
+                            accentClass="bg-sky-500/10 text-sky-200"
                         />
                     </div>
 

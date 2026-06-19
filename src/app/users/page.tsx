@@ -1,18 +1,47 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { Save, Users, Shield, User, Loader2, Eye, Lightbulb } from 'lucide-react'
+import { Save, Shield, User, Loader2, Eye, Lightbulb } from 'lucide-react'
 import DashboardLayout from '@/components/DashboardLayout'
+import { createClient } from '@/lib/supabase/client'
 
 interface UserProfile {
     id: string
     email: string
     full_name: string | null
     role: string
+    role_creative: string | null
     role_graphic: string | null
     created_at: string
+}
+
+function getRoleColor(role: string) {
+    switch (role) {
+        case 'admin':
+            return 'bg-red-500/20 text-red-300 border-red-500/30'
+        case 'manager':
+            return 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+        case 'idea_creator':
+            return 'bg-violet-500/20 text-violet-300 border-violet-500/30'
+        case 'none':
+            return 'bg-slate-800 text-slate-400 border-slate-700'
+        default:
+            return 'bg-slate-500/20 text-slate-300 border-slate-500/30'
+    }
+}
+
+function getRoleIcon(role: string) {
+    switch (role) {
+        case 'admin':
+            return Shield
+        case 'manager':
+            return Eye
+        case 'idea_creator':
+            return Lightbulb
+        default:
+            return User
+    }
 }
 
 export default function UsersPage() {
@@ -28,18 +57,25 @@ export default function UsersPage() {
     useEffect(() => {
         const loadData = async () => {
             const { data: { user } } = await supabase.auth.getUser()
-            if (!user) { router.push('/login'); return }
+            if (!user) {
+                router.push('/login')
+                return
+            }
 
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('role, full_name, role_graphic')
+                .select('role, role_creative, full_name, role_graphic')
                 .eq('id', user.id)
                 .single()
 
             const userRole = profile?.role || 'member'
+            const userRoleCreative = profile?.role_creative || userRole
             const userRoleGraphic = profile?.role_graphic || 'none'
-            // Manager can access Users page if manager in either project
-            const hasAccess = ['admin', 'manager'].includes(userRole) || ['admin', 'manager'].includes(userRoleGraphic)
+            const hasAccess =
+                ['admin', 'manager'].includes(userRole)
+                || ['admin', 'manager'].includes(userRoleCreative)
+                || ['admin', 'manager'].includes(userRoleGraphic)
+
             if (!hasAccess) {
                 router.push('/dashboard')
                 return
@@ -52,22 +88,57 @@ export default function UsersPage() {
                 .select('*')
                 .order('created_at', { ascending: true })
 
-            if (allUsers) setUsers(allUsers)
+            if (allUsers) {
+                setUsers(allUsers as UserProfile[])
+            }
+
             setLoading(false)
         }
-        loadData()
-    }, [supabase, router])
 
-    const handleFieldChange = (userId: string, field: string, value: string) => {
+        void loadData()
+    }, [router, supabase])
+
+    const handleFieldChange = (userId: string, field: keyof UserProfile, value: string) => {
         setEditedUsers(prev => ({
             ...prev,
-            [userId]: { ...prev[userId], [field]: value }
+            [userId]: {
+                ...prev[userId],
+                [field]: value,
+            },
+        }))
+    }
+
+    const handleCreativeRoleChange = (userId: string, value: string, keepIdeaCreator: boolean) => {
+        const baseRole = value === 'none' ? 'member' : value
+
+        setEditedUsers(prev => ({
+            ...prev,
+            [userId]: {
+                ...prev[userId],
+                role: baseRole,
+                role_creative: keepIdeaCreator ? 'idea_creator' : value,
+            },
+        }))
+    }
+
+    const handleIdeaCreatorChange = (userId: string, enabled: boolean, fallbackCreativeRole: string) => {
+        const normalizedCreativeRole = fallbackCreativeRole === 'none' ? 'member' : fallbackCreativeRole
+        const baseRole = ['admin', 'manager'].includes(normalizedCreativeRole) ? 'member' : normalizedCreativeRole
+
+        setEditedUsers(prev => ({
+            ...prev,
+            [userId]: {
+                ...prev[userId],
+                role: enabled ? baseRole : normalizedCreativeRole,
+                role_creative: enabled ? 'idea_creator' : normalizedCreativeRole,
+            },
         }))
     }
 
     const handleSave = async (userId: string) => {
         const changes = editedUsers[userId]
         if (!changes) return
+
         setSaving(userId)
 
         const { error } = await supabase
@@ -76,31 +147,18 @@ export default function UsersPage() {
             .eq('id', userId)
 
         if (!error) {
-            setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...changes } as UserProfile : u))
-            setEditedUsers(prev => { const n = { ...prev }; delete n[userId]; return n })
-            alert('Đã lưu thành công!')
+            setUsers(prev => prev.map(item => item.id === userId ? { ...item, ...changes } as UserProfile : item))
+            setEditedUsers(prev => {
+                const next = { ...prev }
+                delete next[userId]
+                return next
+            })
+            alert('Da luu thanh cong!')
         } else {
-            alert('Lỗi khi lưu: ' + error.message)
+            alert(`Loi khi luu: ${error.message}`)
         }
+
         setSaving(null)
-    }
-
-    const getRoleColor = (role: string) => {
-        switch (role) {
-            case 'admin': return 'bg-red-500/20 text-red-300 border-red-500/30'
-            case 'manager': return 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-            case 'idea_creator': return 'bg-violet-500/20 text-violet-300 border-violet-500/30'
-            default: return 'bg-slate-500/20 text-slate-300 border-slate-500/30'
-        }
-    }
-
-    const getRoleIcon = (role: string) => {
-        switch (role) {
-            case 'admin': return Shield
-            case 'manager': return Eye
-            case 'idea_creator': return Lightbulb
-            default: return User
-        }
     }
 
     if (loading) {
@@ -120,74 +178,72 @@ export default function UsersPage() {
         <DashboardLayout>
             <div className="min-h-screen bg-slate-950">
                 <div className="px-6 py-8">
-                    {/* Header */}
                     <div className="mb-8">
-                        <h1 className="text-2xl font-bold text-white mb-2">Quản lý người dùng</h1>
-                        <p className="text-slate-400">Phân quyền và cập nhật thông tin người dùng</p>
+                        <h1 className="text-2xl font-bold text-white mb-2">Quan ly nguoi dung</h1>
+                        <p className="text-slate-400">Phan quyen va cap nhat thong tin nguoi dung</p>
                         <p className="text-sm text-purple-400 mt-2">
-                            Đang đăng nhập: {currentUser?.email}
+                            Dang dang nhap: {currentUser?.email}
                         </p>
                     </div>
 
-                    {/* Role Legend */}
                     <div className="flex flex-wrap gap-4 mb-6">
                         <div className="flex items-center gap-2 text-sm">
-                            <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                            <span className="text-slate-400">Creative Manager — Xem được cả hai team + Quản lý users</span>
+                            <div className="w-3 h-3 rounded-full bg-red-500" />
+                            <span className="text-slate-400">Creative Manager: xem ca hai team va quan ly users</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
-                            <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                            <span className="text-slate-400">Admin Creative — Xem được các thành viên video</span>
+                            <div className="w-3 h-3 rounded-full bg-amber-500" />
+                            <span className="text-slate-400">Admin Creative: xem cac thanh vien video</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
-                            <div className="w-3 h-3 rounded-full bg-cyan-500"></div>
-                            <span className="text-slate-400">Admin Design — Xem được các thành viên design</span>
+                            <div className="w-3 h-3 rounded-full bg-violet-500" />
+                            <span className="text-slate-400">Idea Creator: chi xem Benchmark Creative va Signal Dashboard</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
-                            <div className="w-3 h-3 rounded-full bg-slate-500"></div>
-                            <span className="text-slate-400">Member — Chỉ xem được chính mình</span>
+                            <div className="w-3 h-3 rounded-full bg-cyan-500" />
+                            <span className="text-slate-400">Admin Design: xem cac thanh vien design</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
-                            <div className="w-3 h-3 rounded-full bg-slate-700"></div>
-                            <span className="text-slate-400">None — Không truy cập project</span>
+                            <div className="w-3 h-3 rounded-full bg-slate-500" />
+                            <span className="text-slate-400">Member: chi xem duoc chinh minh</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                            <div className="w-3 h-3 rounded-full bg-slate-700" />
+                            <span className="text-slate-400">None: khong truy cap project</span>
                         </div>
                     </div>
 
-                    {/* Users Table */}
                     <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden">
                         <div className="overflow-x-auto">
-                            <table className="w-full">
+                            <table className="w-full min-w-[1200px]">
                                 <thead>
                                     <tr className="border-b border-slate-700/50">
                                         <th className="text-left py-4 px-5 text-sm font-medium text-slate-400">Email</th>
-                                        <th className="text-left py-4 px-5 text-sm font-medium text-slate-400">Tên đầy đủ</th>
-                                        <th className="text-center py-4 px-5 text-sm font-medium text-slate-400">
-                                            <div className="flex items-center justify-center gap-1">
-                                                🎬 <span>Video Creative</span>
-                                            </div>
-                                        </th>
-                                        <th className="text-center py-4 px-5 text-sm font-medium text-slate-400">
-                                            <div className="flex items-center justify-center gap-1">
-                                                🎨 <span>Graphic Design</span>
-                                            </div>
-                                        </th>
-                                        <th className="text-right py-4 px-5 text-sm font-medium text-slate-400">Thao tác</th>
+                                        <th className="text-left py-4 px-5 text-sm font-medium text-slate-400">Ten day du</th>
+                                        <th className="text-center py-4 px-5 text-sm font-medium text-slate-400">Video Creative</th>
+                                        <th className="text-center py-4 px-5 text-sm font-medium text-slate-400">Idea Creator</th>
+                                        <th className="text-center py-4 px-5 text-sm font-medium text-slate-400">Graphic Design</th>
+                                        <th className="text-right py-4 px-5 text-sm font-medium text-slate-400">Thao tac</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {users.map(user => {
                                         const edited = editedUsers[user.id]
+                                        const creativeRole = (edited?.role_creative !== undefined ? edited.role_creative : user.role_creative) || user.role || 'member'
                                         const currentRole = (edited?.role || user.role) as string
-                                        const currentRoleGraphic = (edited?.role_graphic !== undefined ? edited.role_graphic : user.role_graphic) as string || 'none'
+                                        const currentVideoCreativeRole = creativeRole === 'idea_creator' ? 'member' : creativeRole
+                                        const currentIdeaCreatorRole = creativeRole === 'idea_creator' ? 'idea_creator' : 'none'
+                                        const currentRoleGraphic = (edited?.role_graphic !== undefined ? edited.role_graphic : user.role_graphic) || 'none'
                                         const currentFullName = edited?.full_name !== undefined ? (edited.full_name || '') : (user.full_name || '')
-                                        const hasChanges = !!edited
-                                        const RoleIcon = getRoleIcon(currentRole)
+                                        const hasChanges = Boolean(edited)
+                                        const displayRole = currentIdeaCreatorRole === 'idea_creator' ? 'idea_creator' : currentRole
+                                        const RoleIcon = getRoleIcon(displayRole)
 
                                         return (
                                             <tr key={user.id} className="border-b border-slate-700/30 hover:bg-slate-700/20 transition-colors">
                                                 <td className="py-4 px-5">
                                                     <div className="flex items-center gap-3">
-                                                        <div className={`p-2 rounded-lg ${getRoleColor(currentRole)}`}>
+                                                        <div className={`p-2 rounded-lg border ${getRoleColor(displayRole)}`}>
                                                             <RoleIcon className="w-4 h-4" />
                                                         </div>
                                                         <span className="text-white font-medium text-sm">{user.email}</span>
@@ -197,28 +253,37 @@ export default function UsersPage() {
                                                     <input
                                                         type="text"
                                                         value={currentFullName}
-                                                        onChange={e => handleFieldChange(user.id, 'full_name', e.target.value)}
-                                                        placeholder="Nhập tên khớp Asana..."
+                                                        onChange={event => handleFieldChange(user.id, 'full_name', event.target.value)}
+                                                        placeholder="Nhap ten khop Asana..."
                                                         className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
                                                     />
                                                 </td>
                                                 <td className="py-4 px-5">
                                                     <select
-                                                        value={currentRole}
-                                                        onChange={e => handleFieldChange(user.id, 'role', e.target.value)}
-                                                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 ${getRoleColor(currentRole)} bg-slate-700/50 border-slate-600`}
+                                                        value={currentVideoCreativeRole}
+                                                        onChange={event => handleCreativeRoleChange(user.id, event.target.value, currentIdeaCreatorRole === 'idea_creator')}
+                                                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 ${getRoleColor(currentVideoCreativeRole)} bg-slate-700/50 border-slate-600`}
                                                     >
                                                         <option value="admin">Creative Manager</option>
                                                         <option value="manager">Admin Creative</option>
                                                         <option value="member">Member</option>
-                                                        <option value="idea_creator">Idea Creator</option>
                                                         <option value="none">None</option>
                                                     </select>
                                                 </td>
                                                 <td className="py-4 px-5">
                                                     <select
+                                                        value={currentIdeaCreatorRole}
+                                                        onChange={event => handleIdeaCreatorChange(user.id, event.target.value === 'idea_creator', currentVideoCreativeRole)}
+                                                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 ${getRoleColor(currentIdeaCreatorRole)} bg-slate-700/50 border-slate-600`}
+                                                    >
+                                                        <option value="none">None</option>
+                                                        <option value="idea_creator">Idea Creator</option>
+                                                    </select>
+                                                </td>
+                                                <td className="py-4 px-5">
+                                                    <select
                                                         value={currentRoleGraphic}
-                                                        onChange={e => handleFieldChange(user.id, 'role_graphic', e.target.value)}
+                                                        onChange={event => handleFieldChange(user.id, 'role_graphic', event.target.value)}
                                                         className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 ${getRoleColor(currentRoleGraphic)} bg-slate-700/50 border-slate-600`}
                                                     >
                                                         <option value="admin">Admin Design</option>
@@ -230,7 +295,7 @@ export default function UsersPage() {
                                                 <td className="py-4 px-5 text-right">
                                                     {hasChanges && (
                                                         <button
-                                                            onClick={() => handleSave(user.id)}
+                                                            onClick={() => void handleSave(user.id)}
                                                             disabled={saving === user.id}
                                                             className="inline-flex items-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
                                                         >
@@ -239,7 +304,7 @@ export default function UsersPage() {
                                                             ) : (
                                                                 <Save className="w-4 h-4" />
                                                             )}
-                                                            Lưu
+                                                            Luu
                                                         </button>
                                                     )}
                                                 </td>
@@ -252,25 +317,20 @@ export default function UsersPage() {
 
                         {users.length === 0 && (
                             <div className="text-center py-12 text-slate-500">
-                                Chưa có người dùng nào
+                                Chua co nguoi dung nao
                             </div>
                         )}
                     </div>
 
-                    {/* Note */}
                     <div className="mt-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
                         <p className="text-amber-300 text-sm">
-                            <strong>Lưu ý:</strong> Tên đầy đủ phải khớp chính xác với tên trong Asana để hệ thống lọc đúng data.
+                            <strong>Luu y:</strong> Ten day du phai khop voi ten trong Asana de he thong loc dung data.
                             <br />
-                            <strong>Creative Manager:</strong> Xem được cả hai team (Creative + Design) + Quản lý users.
+                            <strong>Video Creative:</strong> quan ly quyen team creative thong thuong.
                             <br />
-                            <strong>Admin Creative:</strong> Xem được các thành viên video creative.
+                            <strong>Idea Creator:</strong> tach rieng de de nhin va se uu tien vao 2 man Benchmark Creative, Signal Dashboard.
                             <br />
-                            <strong>Admin Design:</strong> Xem được các thành viên design.
-                            <br />
-                            <strong>Member:</strong> Chỉ xem được chính mình.
-                            <br />
-                            <strong>None:</strong> Không truy cập project đó.
+                            <strong>Graphic Design:</strong> quan ly quyen team design.
                         </p>
                     </div>
                 </div>

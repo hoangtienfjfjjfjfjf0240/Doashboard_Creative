@@ -712,17 +712,11 @@ export default function CreativeBenchmarkPage() {
             .eq('app_id', selectedAppId)
             .eq('week_start_date', selectedWeekKey)
 
-        const { error: statsDeleteError } = await supabase
-            .from('creative_benchmark_weekly_stats')
-            .delete()
-            .eq('app_id', selectedAppId)
-            .eq('week_start_date', selectedWeekKey)
-
-        if (deleteError || statsDeleteError) {
+        if (deleteError) {
             setStorageMode('local')
             saveLocalRows(selectedAppId, selectedWeekKey, rowsToSave)
             saveLocalStats(selectedAppId, selectedWeekKey, statsToSave)
-            setMessage({ type: 'error', text: getSupabaseSaveError(deleteError || statsDeleteError) })
+            setMessage({ type: 'error', text: getSupabaseSaveError(deleteError) })
             savingRef.current = false
             setSaving(false)
             return
@@ -758,9 +752,11 @@ export default function CreativeBenchmarkPage() {
             }
         }
 
+        // Keep the first save timestamp/owner on weekly stats so deadline tracking
+        // still reflects the initial submission even if someone edits later.
         const { error: statsInsertError } = await supabase
             .from('creative_benchmark_weekly_stats')
-            .insert({
+            .upsert({
                 app_id: selectedAppId,
                 week_start_date: selectedWeekKey,
                 videos_created: toNumber(weeklyStats.videosCreated),
@@ -771,6 +767,8 @@ export default function CreativeBenchmarkPage() {
                 benchmark_cvr: parseMetric(weeklyStats.benchmarkCvr),
                 benchmark_cpi: parseMetric(weeklyStats.benchmarkCpi),
                 benchmark_cpm: parseMetric(weeklyStats.benchmarkCpm),
+            }, {
+                onConflict: 'app_id,week_start_date',
             })
 
         if (statsInsertError) {
