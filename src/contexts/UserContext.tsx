@@ -8,6 +8,8 @@ interface UserData {
     role: string
     roleCreative: string
     roleGraphic: string
+    roleDashboard: string
+    roleBenchmark: string
     fullName: string
     asanaEmail: string
     asanaName: string
@@ -17,6 +19,7 @@ interface UserContextType {
     user: UserData | null
     loading: boolean
     canAccessProject: (project: 'creative' | 'graphic') => boolean
+    canAccessFeature: (feature: 'dashboard' | 'benchmark') => boolean
     getProjectRole: (project: 'creative' | 'graphic') => string
 }
 
@@ -24,6 +27,7 @@ const UserContext = createContext<UserContextType>({
     user: null,
     loading: true,
     canAccessProject: () => false,
+    canAccessFeature: () => false,
     getProjectRole: () => 'none',
 })
 
@@ -35,17 +39,43 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const fetchUserProfile = useCallback(async () => {
         const { data: { user: authUser } } = await supabase.auth.getUser()
         if (authUser) {
-            const { data: profile } = await supabase
+            const profileResult = await supabase
                 .from('profiles')
                 .select('role, full_name, asana_email, asana_name, role_creative, role_graphic')
                 .eq('id', authUser.id)
                 .single()
 
+            const profile = profileResult.data as {
+                role?: string | null
+                role_creative?: string | null
+                role_graphic?: string | null
+                full_name?: string | null
+                asana_email?: string | null
+                asana_name?: string | null
+            } | null
+            const hasProfile = Boolean(profile)
+            const globalRole = profile?.role || 'member'
+            const creativeRole = hasProfile ? (profile?.role_creative || globalRole) : 'none'
+            const graphicRole = hasProfile ? (profile?.role_graphic || 'none') : 'none'
+            const dashboardRole = globalRole === 'admin'
+                ? 'admin'
+                : creativeRole && creativeRole !== 'none' && creativeRole !== 'idea_creator'
+                    ? creativeRole
+                    : 'none'
+            const benchmarkRole = globalRole === 'admin'
+                ? 'admin'
+                : creativeRole && creativeRole !== 'none'
+                    ? creativeRole
+                    : graphicRole && graphicRole !== 'none'
+                        ? graphicRole
+                        : 'none'
             const userData: UserData = {
                 email: authUser.email || '',
-                role: profile?.role || 'member',
-                roleCreative: profile?.role_creative || profile?.role || 'member',
-                roleGraphic: profile?.role_graphic || 'none',
+                role: globalRole,
+                roleCreative: creativeRole,
+                roleGraphic: graphicRole,
+                roleDashboard: dashboardRole,
+                roleBenchmark: benchmarkRole,
                 fullName: profile?.full_name || '',
                 asanaEmail: profile?.asana_email || authUser.email || '',
                 asanaName: profile?.asana_name || profile?.full_name || '',
@@ -82,6 +112,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
         return projectRole !== 'none' && projectRole !== ''
     }
 
+    const canAccessFeature = (feature: 'dashboard' | 'benchmark'): boolean => {
+        if (!user) return false
+        if (user.role === 'admin') return true
+        if (feature === 'dashboard') {
+            return user.roleCreative !== 'none' && user.roleCreative !== '' && user.roleCreative !== 'idea_creator'
+        }
+        return (
+            (user.roleCreative !== 'none' && user.roleCreative !== '')
+            || (user.roleGraphic !== 'none' && user.roleGraphic !== '')
+        )
+    }
+
     const getProjectRole = (project: 'creative' | 'graphic'): string => {
         if (!user) return 'none'
         if (user.role === 'admin') return 'admin'
@@ -89,7 +131,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
 
     return (
-        <UserContext.Provider value={{ user, loading, canAccessProject, getProjectRole }}>
+        <UserContext.Provider value={{ user, loading, canAccessProject, canAccessFeature, getProjectRole }}>
             {children}
         </UserContext.Provider>
     )

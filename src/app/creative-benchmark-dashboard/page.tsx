@@ -70,6 +70,7 @@ type DbWeeklyStatsRow = {
 
 type AppSignalMetric = {
     app: BenchmarkApp
+    ideaCount: number
     videosCreated: number
     funnelOneCount: number
     winCount: number
@@ -531,9 +532,8 @@ function SignalBarChart({
 export default function CreativeBenchmarkDashboardPage() {
     const router = useRouter()
     const supabase = useMemo(() => createClient(), [])
-    const { user, loading: userLoading } = useUser()
-    const canAccessIdeaCreator = user?.role === 'admin'
-        || (Boolean(user?.roleCreative) && user?.roleCreative !== 'none')
+    const { user, loading: userLoading, canAccessFeature } = useUser()
+    const canAccessBenchmark = canAccessFeature('benchmark')
     const currentWeekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), [])
     const timelineWeeks = useMemo(() => generateTimelineWeeks(currentWeekStart), [currentWeekStart])
     const weeksByMonth = useMemo(() => groupWeeksByMonth(timelineWeeks), [timelineWeeks])
@@ -618,10 +618,10 @@ export default function CreativeBenchmarkDashboardPage() {
         if (!userLoading && !user) {
             router.push('/login')
         }
-        if (!userLoading && user && !canAccessIdeaCreator) {
-            router.push('/dashboard')
+        if (!userLoading && user && !canAccessBenchmark) {
+            router.push(canAccessFeature('dashboard') ? '/dashboard' : '/login')
         }
-    }, [canAccessIdeaCreator, router, user, userLoading])
+    }, [canAccessBenchmark, canAccessFeature, router, user, userLoading])
 
     useEffect(() => {
         if (!user) return
@@ -645,7 +645,7 @@ export default function CreativeBenchmarkDashboardPage() {
 
     const appMetrics = useMemo(() => {
         const visibleAppMap = new Map(benchmarkApps.map(app => [app.id, app]))
-        const entryCounts = new Map<string, { funnelOneCount: number; winCount: number }>()
+        const entryCounts = new Map<string, { ideaCount: number; funnelOneCount: number; winCount: number }>()
         const statsMap = new Map<string, DbWeeklyStatsRow>()
 
         for (const row of weeklyStats) {
@@ -653,7 +653,8 @@ export default function CreativeBenchmarkDashboardPage() {
         }
 
         for (const entry of entries) {
-            const current = entryCounts.get(entry.app_id) || { funnelOneCount: 0, winCount: 0 }
+            const current = entryCounts.get(entry.app_id) || { ideaCount: 0, funnelOneCount: 0, winCount: 0 }
+            current.ideaCount += 1
             if (entry.passed) current.funnelOneCount += 1
             if (entry.win) current.winCount += 1
             entryCounts.set(entry.app_id, current)
@@ -662,7 +663,7 @@ export default function CreativeBenchmarkDashboardPage() {
         const relevantAppIds = new Set<string>()
         benchmarkApps.forEach(app => relevantAppIds.add(app.id))
         entryCounts.forEach((value, appId) => {
-            if (value.funnelOneCount > 0 || value.winCount > 0) {
+            if (value.ideaCount > 0 || value.funnelOneCount > 0 || value.winCount > 0) {
                 relevantAppIds.add(appId)
             }
         })
@@ -676,7 +677,7 @@ export default function CreativeBenchmarkDashboardPage() {
             .filter(appId => !hiddenAppIds.includes(appId))
             .map(appId => {
                 const app = visibleAppMap.get(appId) || createFallbackApp(appId)
-                const counts = entryCounts.get(appId) || { funnelOneCount: 0, winCount: 0 }
+                const counts = entryCounts.get(appId) || { ideaCount: 0, funnelOneCount: 0, winCount: 0 }
                 const stats = statsMap.get(appId)
                 const videosCreated = stats?.videos_created || 0
                 const funnelOneRate = videosCreated > 0 ? Math.round((counts.funnelOneCount / videosCreated) * 100) : 0
@@ -684,6 +685,7 @@ export default function CreativeBenchmarkDashboardPage() {
 
                 return {
                     app,
+                    ideaCount: counts.ideaCount,
                     videosCreated,
                     funnelOneCount: counts.funnelOneCount,
                     winCount: counts.winCount,
@@ -696,6 +698,7 @@ export default function CreativeBenchmarkDashboardPage() {
                     benchmarkCpm: stats?.benchmark_cpm ?? null,
                     hasSavedData: Boolean(
                         stats
+                        || counts.ideaCount > 0
                         || videosCreated > 0
                         || counts.funnelOneCount > 0
                         || counts.winCount > 0
@@ -776,23 +779,27 @@ export default function CreativeBenchmarkDashboardPage() {
 
     const totals = useMemo(() => {
         return appMetrics.reduce((result, item) => {
+            result.ideaCount += item.ideaCount
             result.videosCreated += item.videosCreated
             result.funnelOneCount += item.funnelOneCount
             result.winCount += item.winCount
             return result
         }, {
+            ideaCount: 0,
             videosCreated: 0,
             funnelOneCount: 0,
             winCount: 0,
         })
     }, [appMetrics])
 
+    const activeAppCount = appMetrics.filter(item => item.ideaCount > 0 || item.videosCreated > 0).length
     const overallFunnelRate = totals.videosCreated > 0
         ? Math.round((totals.funnelOneCount / totals.videosCreated) * 100)
         : 0
     const overallWinRate = totals.funnelOneCount > 0
         ? Math.round((totals.winCount / totals.funnelOneCount) * 100)
         : 0
+    const maxIdeaCount = Math.max(1, ...appMetrics.map(item => item.ideaCount))
     const deadlineRate = deadlineStats && deadlineStats.totalIdeaCreators > 0
         ? Math.round((deadlineStats.onTimeCount / deadlineStats.totalIdeaCreators) * 100)
         : 0
@@ -803,7 +810,7 @@ export default function CreativeBenchmarkDashboardPage() {
         ? `Idea Creator luu truoc 23:59 thu 2. Tre: ${deadlineStats.lateCount}, chua nhap: ${deadlineStats.pendingCount}.`
         : 'Chua tai duoc ti le deadline thu 2.'
 
-    if (userLoading || !user || !canAccessIdeaCreator) {
+    if (userLoading || !user || !canAccessBenchmark) {
         return (
             <DashboardLayout hideAgent>
                 <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -968,27 +975,27 @@ export default function CreativeBenchmarkDashboardPage() {
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
                         <KpiCard
-                            label="App có dữ liệu"
-                            value={String(appMetrics.length)}
-                            hint="Dashboard này chỉ hiện các app đã có data trong tuần được chọn"
+                            label="App đang làm"
+                            value={`${activeAppCount}/${benchmarkApps.length}`}
+                            hint="Số app đang có idea hoặc video trong tuần đang chọn"
                             accentClass="bg-cyan-500/10 text-cyan-200"
                         />
                         <KpiCard
-                            label="Video tạo"
-                            value={String(totals.videosCreated)}
-                            hint="Tổng video tạo theo tuần của toàn bộ app đang có lưu benchmark"
+                            label="Idea trong tuần"
+                            value={String(totals.ideaCount)}
+                            hint={`${totals.videosCreated} video tạo trong tuần này`}
                             accentClass="bg-violet-500/10 text-violet-200"
                         />
                         <KpiCard
-                            label="Qua phễu 1"
-                            value={`${totals.funnelOneCount} (${overallFunnelRate}%)`}
-                            hint="Tổng số video đạt phễu 1 trên toàn bộ app trong tuần đã chọn"
+                            label="Tỉ lệ phễu 1"
+                            value={`${overallFunnelRate}%`}
+                            hint={`${totals.funnelOneCount}/${totals.videosCreated} video qua phễu 1`}
                             accentClass="bg-emerald-500/10 text-emerald-200"
                         />
                         <KpiCard
                             label="Tỉ lệ win"
-                            value={`${totals.winCount} (${overallWinRate}%)`}
-                            hint={topWinApps[0] ? `Top win hiện tại: ${topWinApps[0].app.name}` : 'Chưa có app có win trong tuần này'}
+                            value={`${overallWinRate}%`}
+                            hint={`${totals.winCount}/${totals.funnelOneCount} win trong tuần này`}
                             accentClass="bg-amber-500/10 text-amber-100"
                         />
                         <KpiCard
@@ -1064,16 +1071,18 @@ export default function CreativeBenchmarkDashboardPage() {
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
-                                <table className="min-w-[1180px] w-full">
+                                <table className="min-w-[1320px] w-full">
                                     <thead className="bg-slate-950/70">
                                         <tr>
                                             <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-400">App</th>
+                                            <th className="px-3 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-400 w-[21%]">Idea tuần</th>
                                             <th className="px-3 py-4 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Video tạo</th>
                                             <th className="px-3 py-4 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Qua phễu 1</th>
                                             <th className="px-3 py-4 text-right text-xs font-bold uppercase tracking-wider text-slate-400">% phễu 1</th>
                                             <th className="px-3 py-4 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Win</th>
                                             <th className="px-3 py-4 text-right text-xs font-bold uppercase tracking-wider text-slate-400">% win</th>
                                             <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Benchmark đang dùng</th>
+                                            <th className="px-5 py-4 w-28" />
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-800">
@@ -1081,6 +1090,17 @@ export default function CreativeBenchmarkDashboardPage() {
                                             <tr key={item.app.id} className="bg-slate-900/40 transition-colors hover:bg-slate-900/80">
                                                 <td className="px-5 py-4">
                                                     <AppIdentity app={item.app} />
+                                                </td>
+                                                <td className="px-3 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="w-8 text-right text-sm font-bold text-white">{item.ideaCount}</span>
+                                                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-800">
+                                                            <div
+                                                                className="h-full rounded-full bg-gradient-to-r from-violet-400 via-fuchsia-400 to-cyan-400"
+                                                                style={{ width: `${Math.min(Math.round((item.ideaCount / maxIdeaCount) * 100), 100)}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
                                                 </td>
                                                 <td className="px-3 py-4 text-right">
                                                     <div className="text-lg font-bold text-white">{item.videosCreated}</div>
@@ -1122,6 +1142,14 @@ export default function CreativeBenchmarkDashboardPage() {
                                                             <span>CPM ${formatMetricValue(item.benchmarkCpm)}</span>
                                                         </div>
                                                     </div>
+                                                </td>
+                                                <td className="px-5 py-4 text-right">
+                                                    <Link
+                                                        href={`/creative-benchmark?appId=${encodeURIComponent(item.app.id)}&weekStart=${encodeURIComponent(selectedWeekKey)}`}
+                                                        className="inline-flex h-9 items-center rounded-lg border border-slate-700 bg-slate-800 px-3 text-xs font-semibold text-slate-200 transition-colors hover:bg-slate-700"
+                                                    >
+                                                        Chi tiết
+                                                    </Link>
                                                 </td>
                                             </tr>
                                         ))}

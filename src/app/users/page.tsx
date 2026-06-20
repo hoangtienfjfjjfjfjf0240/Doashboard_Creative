@@ -197,7 +197,7 @@ export default function UsersPage() {
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                             <div className="w-3 h-3 rounded-full bg-violet-500" />
-                            <span className="text-slate-400">Idea Creator: chi xem Benchmark Creative va Signal Dashboard</span>
+                            <span className="text-slate-400">Idea Creator: chi xem Benchmark Creative va Signal Dashboard, khong xem khu Video va Graphic</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                             <div className="w-3 h-3 rounded-full bg-cyan-500" />
@@ -215,7 +215,7 @@ export default function UsersPage() {
 
                     <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden">
                         <div className="overflow-x-auto">
-                            <table className="w-full min-w-[1200px]">
+                            <table className="w-full min-w-[1180px]">
                                 <thead>
                                     <tr className="border-b border-slate-700/50">
                                         <th className="text-left py-4 px-5 text-sm font-medium text-slate-400">Email</th>
@@ -331,6 +331,8 @@ export default function UsersPage() {
                             <strong>Idea Creator:</strong> tach rieng de de nhin va se uu tien vao 2 man Benchmark Creative, Signal Dashboard.
                             <br />
                             <strong>Graphic Design:</strong> quan ly quyen team design.
+                            <br />
+                            <strong>Dashboard / Benchmark:</strong> phan quyen rieng cho Overview va hai man Benchmark.
                         </p>
                     </div>
                 </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 
@@ -11,7 +11,9 @@ export default function LoginPage() {
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
     const router = useRouter()
+    const searchParams = useSearchParams()
     const supabase = createClient()
+    const pendingApproval = searchParams.get('pending') === '1'
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -31,19 +33,39 @@ export default function LoginPage() {
                 try {
                     const { data: { user: authUser } } = await supabase.auth.getUser()
                     if (authUser) {
-                        const { data: profile } = await supabase
+                        const profileResult = await supabase
                             .from('profiles')
                             .select('role, role_creative, role_graphic')
                             .eq('id', authUser.id)
                             .single()
 
-                        // If user has graphic design role, go to graphic dashboard
-                        if (profile?.role_graphic && profile.role_graphic !== 'none') {
+                        const profile = profileResult.data as {
+                            role?: string | null
+                            role_creative?: string | null
+                            role_graphic?: string | null
+                        } | null
+                        const hasProfile = Boolean(profile)
+                        const globalRole = profile?.role || 'member'
+                        const creativeRole = hasProfile ? (profile?.role_creative || globalRole) : 'none'
+                        const graphicRole = hasProfile ? (profile?.role_graphic || 'none') : 'none'
+                        const canAccessCreativeDashboard = globalRole === 'admin'
+                            || (creativeRole !== 'none' && creativeRole !== 'idea_creator')
+                        const canAccessBenchmark = globalRole === 'admin'
+                            || creativeRole !== 'none'
+                            || graphicRole !== 'none'
+
+                        if (creativeRole === 'idea_creator' && canAccessBenchmark) {
+                            router.push('/creative-benchmark')
+                        } else if (canAccessCreativeDashboard) {
+                            router.push('/dashboard')
+                        } else if (graphicRole !== 'none') {
                             router.push('/graphic-dashboard')
-                        } else if ((profile?.role_creative || profile?.role) === 'idea_creator') {
+                        } else if (canAccessBenchmark) {
                             router.push('/creative-benchmark')
                         } else {
-                            router.push('/dashboard')
+                            await supabase.auth.signOut()
+                            setError('Tài khoản đã tạo nhưng chưa được phân quyền. Liên hệ admin để bật team Video, Idea hoặc Graphic.')
+                            return
                         }
                     } else {
                         router.push('/dashboard')
@@ -121,6 +143,12 @@ export default function LoginPage() {
                         {error && (
                             <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
                                 {error}
+                            </div>
+                        )}
+
+                        {pendingApproval && !error && (
+                            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-300 text-sm">
+                                Tài khoản đã xác thực nhưng chưa được phân quyền. Admin chỉ cần vào Users để bật team Video, Idea hoặc Graphic.
                             </div>
                         )}
 

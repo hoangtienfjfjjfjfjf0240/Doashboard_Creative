@@ -70,14 +70,38 @@ export default function DashboardPage() {
         const getUser = async () => {
             const { data: { user } } = await supabase.auth.getUser()
             if (user) {
-                const { data: profile } = await supabase
+                const profileResult = await supabase
                     .from('profiles')
-                    .select('role, role_creative, full_name, asana_email, asana_name')
+                    .select('role, role_creative, role_graphic, full_name, asana_email, asana_name')
                     .eq('id', user.id)
                     .single()
 
-                if ((profile?.role_creative || profile?.role) === 'idea_creator') {
-                    router.push('/creative-benchmark')
+                const profile = profileResult.data as {
+                    role?: string | null
+                    role_creative?: string | null
+                    role_graphic?: string | null
+                    full_name?: string | null
+                    asana_email?: string | null
+                    asana_name?: string | null
+                } | null
+                const hasProfile = Boolean(profile)
+                const globalRole = profile?.role || 'member'
+                const creativeRole = hasProfile ? (profile?.role_creative || globalRole) : 'none'
+                const graphicRole = hasProfile ? (profile?.role_graphic || 'none') : 'none'
+                const canAccessCreativeDashboard = globalRole === 'admin'
+                    || (creativeRole !== 'none' && creativeRole !== 'idea_creator')
+                const canAccessBenchmark = globalRole === 'admin'
+                    || creativeRole !== 'none'
+                    || graphicRole !== 'none'
+                if (!canAccessCreativeDashboard) {
+                    if (graphicRole !== 'none') {
+                        router.push('/graphic-dashboard')
+                    } else if (canAccessBenchmark) {
+                        router.push('/creative-benchmark')
+                    } else {
+                        await supabase.auth.signOut()
+                        router.push('/login?pending=1')
+                    }
                     return
                 }
 
@@ -87,8 +111,8 @@ export default function DashboardPage() {
 
                 setUser({
                     email: user.email || '',
-                    role: profile?.role || 'member',
-                    roleCreative: profile?.role_creative || profile?.role || 'member',
+                    role: globalRole === 'admin' ? 'admin' : creativeRole,
+                    roleCreative: creativeRole,
                     fullName: profile?.full_name || '',
                     asanaEmail: asanaEmail,
                     asanaName: asanaName,
@@ -96,7 +120,7 @@ export default function DashboardPage() {
             }
         }
         getUser()
-    }, [supabase])
+    }, [router, supabase])
 
     // Fetch data
     const fetchData = useCallback(async (isRealtimeRefresh = false) => {

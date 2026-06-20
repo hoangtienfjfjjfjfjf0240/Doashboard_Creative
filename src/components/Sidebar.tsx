@@ -6,16 +6,29 @@ import { usePathname } from 'next/navigation'
 import { LayoutTemplate, Target, Users, Calendar, History, Film, Palette, Lightbulb, BarChart3, TrendingUp } from 'lucide-react'
 import { useUser } from '@/contexts/UserContext'
 
+type MenuItem = {
+    title: string
+    path: string
+    icon: React.ComponentType<{ className?: string }>
+}
+
+type CommonMenuItem = MenuItem & {
+    roles: string[]
+}
+
 export default function Sidebar() {
     const pathname = usePathname()
-    const { user, canAccessProject } = useUser()
+    const { user, canAccessProject, canAccessFeature } = useUser()
     const userRole = user?.role || 'member'
     const creativeRole = user?.role === 'admin' ? 'admin' : user?.roleCreative || 'none'
+    const canAccessBenchmark = canAccessFeature('benchmark')
 
-    const creativeItems = [
-        { title: 'Overview', path: '/dashboard', icon: LayoutTemplate },
-        { title: 'Mục tiêu Target', path: '/settings', icon: Target },
-        { title: 'Lịch sử Due Date', path: '/history', icon: History },
+    const creativeItems: MenuItem[] = [
+        ...(canAccessFeature('dashboard') ? [{ title: 'Overview', path: '/dashboard', icon: LayoutTemplate }] : []),
+        ...(canAccessProject('creative') && creativeRole !== 'idea_creator' ? [
+            { title: 'Mục tiêu Target', path: '/settings', icon: Target },
+            { title: 'Lịch sử Due Date', path: '/history', icon: History },
+        ] : []),
     ]
 
     const graphicItems = [
@@ -24,22 +37,20 @@ export default function Sidebar() {
         { title: 'Lịch sử Due Date', path: '/graphic-history', icon: History },
     ]
 
-    const ideaCreatorItems = [
+    const ideaCreatorItems: MenuItem[] = canAccessBenchmark ? [
         {
             title: 'Benchmark Creative',
             path: '/creative-benchmark',
             icon: BarChart3,
-            roles: ['member', 'admin', 'manager', 'editor', 'idea_creator'],
         },
         {
             title: 'Signal Dashboard',
             path: '/creative-benchmark-dashboard',
             icon: TrendingUp,
-            roles: ['member', 'admin', 'manager', 'editor', 'idea_creator'],
         },
-    ]
+    ] : []
 
-    const commonItems = [
+    const commonItems: CommonMenuItem[] = [
         {
             title: 'Ngày Nghỉ',
             path: '/day-offs',
@@ -54,19 +65,15 @@ export default function Sidebar() {
         },
     ]
 
-    const filteredIdeaCreatorItems = ideaCreatorItems.filter(item =>
-        item.roles.includes(creativeRole) || userRole === 'admin'
-    )
-
     const filteredCommonItems = commonItems.filter(item =>
         item.roles.includes(userRole) || userRole === 'admin'
     )
 
-    const showCreative = canAccessProject('creative') && creativeRole !== 'idea_creator'
-    const showGraphic = canAccessProject('graphic')
-    const showIdeaCreator = userRole === 'admin' || creativeRole !== 'none'
+    const showCreative = creativeItems.length > 0
+    const showGraphic = canAccessProject('graphic') && creativeRole !== 'idea_creator'
+    const showIdeaCreator = ideaCreatorItems.length > 0
 
-    const renderMenuItem = (item: { title: string; path: string; icon: React.ComponentType<{ className?: string }> }) => {
+    const renderMenuItem = (item: MenuItem) => {
         const isActive = pathname === item.path
         const Icon = item.icon
         return (
@@ -132,13 +139,13 @@ export default function Sidebar() {
                     </>
                 )}
 
-                {showIdeaCreator && filteredIdeaCreatorItems.length > 0 && (
+                {showIdeaCreator && (
                     <>
                         <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 px-2 pt-1">
                             <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
                             <span>Idea Creator</span>
                         </div>
-                        {filteredIdeaCreatorItems.map(renderMenuItem)}
+                        {ideaCreatorItems.map(renderMenuItem)}
                         <div className="my-3 border-b border-slate-800/70" />
                     </>
                 )}

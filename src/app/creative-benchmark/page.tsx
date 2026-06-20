@@ -1,12 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
     addDays,
     addWeeks,
     format,
     isSameDay,
+    parseISO,
     startOfWeek,
     subDays,
 } from 'date-fns'
@@ -404,10 +405,9 @@ function groupWeeksByMonth(weeks: ReturnType<typeof generateTimelineWeeks>) {
 
 export default function CreativeBenchmarkPage() {
     const router = useRouter()
+    const searchParams = useSearchParams()
     const supabase = useMemo(() => createClient(), [])
-    const { user, loading: userLoading } = useUser()
-    const canAccessIdeaCreator = user?.role === 'admin'
-        || (Boolean(user?.roleCreative) && user?.roleCreative !== 'none')
+    const { user, loading: userLoading, canAccessFeature } = useUser()
     const currentWeekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), [])
     const timelineWeeks = useMemo(() => generateTimelineWeeks(currentWeekStart), [currentWeekStart])
     const weeksByMonth = useMemo(() => groupWeeksByMonth(timelineWeeks), [timelineWeeks])
@@ -434,10 +434,12 @@ export default function CreativeBenchmarkPage() {
     const dirtyVersionRef = useRef(0)
     const saveRowsRef = useRef<((options?: SaveRowsOptions) => Promise<void>) | null>(null)
     const savingRef = useRef(false)
+    const canAccessBenchmark = canAccessFeature('benchmark')
+    const benchmarkRole = user?.roleBenchmark || user?.roleCreative || user?.role || 'member'
     const canDeleteApps = user?.role === 'admin'
         || user?.role === 'manager'
-        || user?.roleCreative === 'admin'
-        || user?.roleCreative === 'manager'
+        || benchmarkRole === 'admin'
+        || benchmarkRole === 'manager'
 
     const benchmarkApps = useMemo(
         () => [...BENCHMARK_APPS, ...customApps].filter(app => !hiddenAppIds.includes(app.id)),
@@ -618,11 +620,12 @@ export default function CreativeBenchmarkPage() {
     useEffect(() => {
         if (!userLoading && !user) {
             router.push('/login')
+            return
         }
-        if (!userLoading && user && !canAccessIdeaCreator) {
-            router.push('/dashboard')
+        if (!userLoading && user && !canAccessBenchmark) {
+            router.push(canAccessFeature('dashboard') ? '/dashboard' : '/login')
         }
-    }, [canAccessIdeaCreator, router, user, userLoading])
+    }, [canAccessBenchmark, canAccessFeature, router, user, userLoading])
 
     useEffect(() => {
         setCustomApps(loadCustomApps())
@@ -634,6 +637,21 @@ export default function CreativeBenchmarkPage() {
             setSelectedAppId(benchmarkApps[0].id)
         }
     }, [benchmarkApps, selectedAppId])
+
+    useEffect(() => {
+        const requestedAppId = searchParams.get('appId')
+        if (requestedAppId && benchmarkApps.some(app => app.id === requestedAppId)) {
+            setSelectedAppId(requestedAppId)
+        }
+
+        const requestedWeekStart = searchParams.get('weekStart')
+        if (requestedWeekStart) {
+            const parsedDate = parseISO(requestedWeekStart)
+            if (!Number.isNaN(parsedDate.getTime())) {
+                setSelectedWeekStart(startOfWeek(parsedDate, { weekStartsOn: 1 }))
+            }
+        }
+    }, [benchmarkApps, searchParams])
 
     useEffect(() => {
         loadRows(selectedAppId, selectedWeekKey)
@@ -1003,7 +1021,7 @@ export default function CreativeBenchmarkPage() {
         setMessage({ type: 'success', text: 'Đã xóa app benchmark' })
     }
 
-    if (userLoading || !user || !canAccessIdeaCreator) {
+    if (userLoading || !user || !canAccessBenchmark) {
         return (
             <DashboardLayout hideAgent>
                 <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -1361,6 +1379,37 @@ export default function CreativeBenchmarkPage() {
                                     </button>
                                 </div>
 
+                                <div className="px-4 py-3 border-b border-slate-800 bg-amber-500/10">
+                                    <div className="grid grid-cols-1 md:grid-cols-[1.4fr_0.8fr_repeat(4,0.7fr)_0.55fr] gap-3 items-end">
+                                        <div>
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-200/80">Benchmark</span>
+                                            <div className="mt-1 h-9 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 flex items-center text-sm font-bold text-amber-100">
+                                                Benchmark
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-200/80">Market</span>
+                                            <div className="mt-1">
+                                                <MarketSelect
+                                                    value={weeklyStats.benchmarkMarket}
+                                                    onChange={value => updateWeeklyStat('benchmarkMarket', value)}
+                                                    tone="benchmark"
+                                                />
+                                            </div>
+                                        </div>
+                                        <BenchmarkMetricField label="CTR" value={weeklyStats.benchmarkCtr} onChange={value => updateWeeklyStat('benchmarkCtr', value)} placeholder="1.50" suffix="%" />
+                                        <BenchmarkMetricField label="CVR" value={weeklyStats.benchmarkCvr} onChange={value => updateWeeklyStat('benchmarkCvr', value)} placeholder="20" suffix="%" />
+                                        <BenchmarkMetricField label="CPI" value={weeklyStats.benchmarkCpi} onChange={value => updateWeeklyStat('benchmarkCpi', value)} placeholder="4" prefix="$" />
+                                        <BenchmarkMetricField label="CPM" value={weeklyStats.benchmarkCpm} onChange={value => updateWeeklyStat('benchmarkCpm', value)} placeholder="12" prefix="$" />
+                                        <div>
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-200/80">Status</span>
+                                            <div className="mt-1 h-9 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 flex items-center justify-center text-xs font-bold text-amber-200">
+                                                Chuẩn
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 px-4 py-4 border-b border-slate-800 bg-slate-950/20">
                                     <WeeklyStatInput
                                         label="Video tạo theo tuần"
@@ -1400,29 +1449,6 @@ export default function CreativeBenchmarkPage() {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-800">
-                                            <tr className="bg-amber-500/10 hover:bg-amber-500/15">
-                                                <td className="px-3 py-2">
-                                                    <div className="h-9 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 flex items-center text-sm font-bold text-amber-200">
-                                                        Benchmark
-                                                    </div>
-                                                </td>
-                                                <td className="px-3 py-2">
-                                                    <MarketSelect
-                                                        value={weeklyStats.benchmarkMarket}
-                                                        onChange={value => updateWeeklyStat('benchmarkMarket', value)}
-                                                        tone="benchmark"
-                                                    />
-                                                </td>
-                                                <MetricCell value={weeklyStats.benchmarkCtr} onChange={value => updateWeeklyStat('benchmarkCtr', value)} placeholder="1.50" suffix="%" />
-                                                <MetricCell value={weeklyStats.benchmarkCvr} onChange={value => updateWeeklyStat('benchmarkCvr', value)} placeholder="20" suffix="%" />
-                                                <MetricCell value={weeklyStats.benchmarkCpi} onChange={value => updateWeeklyStat('benchmarkCpi', value)} placeholder="4" prefix="$" />
-                                                <MetricCell value={weeklyStats.benchmarkCpm} onChange={value => updateWeeklyStat('benchmarkCpm', value)} placeholder="12" prefix="$" />
-                                                <td className="px-3 py-2 text-center">
-                                                    <span className="text-xs font-bold text-amber-300">Chuẩn</span>
-                                                </td>
-                                                <td className="px-3 py-2" />
-                                                <td className="px-3 py-2" />
-                                            </tr>
                                             {loadingRows ? (
                                                 <tr>
                                                     <td colSpan={9} className="py-16 text-center">
@@ -1501,6 +1527,18 @@ export default function CreativeBenchmarkPage() {
     )
 }
 
+function RateBadge({ value, tone }: { value: number; tone: 'purple' | 'amber' }) {
+    const className = tone === 'purple'
+        ? 'bg-purple-500/15 text-purple-200 border-purple-500/25'
+        : 'bg-amber-500/15 text-amber-200 border-amber-500/25'
+
+    return (
+        <span className={`inline-flex min-w-14 justify-center px-2 py-1 rounded-md border text-xs font-bold ${className}`}>
+            {value}%
+        </span>
+    )
+}
+
 function WeeklyStatInput({
     label,
     value,
@@ -1556,6 +1594,46 @@ function WeeklyStatDisplay({
                 )}
             </div>
         </div>
+    )
+}
+
+function BenchmarkMetricField({
+    label,
+    value,
+    onChange,
+    placeholder,
+    prefix,
+    suffix,
+}: {
+    label: string
+    value: string
+    onChange: (value: string) => void
+    placeholder: string
+    prefix?: string
+    suffix?: string
+}) {
+    return (
+        <label className="block">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-200/80">{label}</span>
+            <div className="relative mt-1">
+                {prefix && (
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-amber-200/70">
+                        {prefix}
+                    </span>
+                )}
+                <input
+                    value={value}
+                    onChange={event => onChange(event.target.value)}
+                    placeholder={placeholder}
+                    className={`w-full h-9 rounded-lg border border-amber-500/25 bg-amber-500/10 text-right text-sm font-semibold text-amber-100 placeholder-amber-200/40 focus:outline-none focus:ring-2 focus:ring-amber-400 ${prefix ? 'pl-6 pr-3' : suffix ? 'pl-3 pr-7' : 'px-3'}`}
+                />
+                {suffix && (
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-amber-200/70">
+                        {suffix}
+                    </span>
+                )}
+            </div>
+        </label>
     )
 }
 

@@ -21,7 +21,7 @@ export default function RegisterPage() {
         setLoading(true)
 
         try {
-            const { error } = await supabase.auth.signUp({
+            const { data, error } = await supabase.auth.signUp({
                 email,
                 password,
                 options: {
@@ -34,6 +34,27 @@ export default function RegisterPage() {
             if (error) {
                 setError(error.message)
             } else {
+                if (data.user?.id && data.user.email) {
+                    const profileResponse = await fetch('/api/register-profile', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            userId: data.user.id,
+                            email: data.user.email,
+                            fullName,
+                        }),
+                    })
+
+                    if (!profileResponse.ok) {
+                        const payload = await profileResponse.json().catch(() => null) as { error?: string } | null
+                        setError(payload?.error || 'Tạo tài khoản thành công nhưng chưa tạo được profile.')
+                        setLoading(false)
+                        return
+                    }
+                }
+
                 setSuccess(true)
                 setTimeout(() => {
                     router.push('/login')
@@ -56,7 +77,7 @@ export default function RegisterPage() {
                         </svg>
                     </div>
                     <h2 className="text-xl font-semibold text-white mb-2">Account Created!</h2>
-                    <p className="text-slate-400">Redirecting to login...</p>
+                    <p className="text-slate-400">Admin co the vao Users de phan quyen ngay sau khi ban dang ky.</p>
                 </div>
             </div>
         )
