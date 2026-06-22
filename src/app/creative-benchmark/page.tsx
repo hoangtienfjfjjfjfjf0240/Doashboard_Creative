@@ -123,6 +123,16 @@ type SaveRowsOptions = {
     silent?: boolean
 }
 
+type ParsedImportRow = {
+    ideaName: string
+    market: string
+    ctr: string
+    cvr: string
+    cpi: string
+    cpm: string
+    win: boolean
+}
+
 const BENCHMARK_APPS: BenchmarkApp[] = [
     {
         id: 'app-store-1641040766',
@@ -258,6 +268,14 @@ function makeRow(overrides: Partial<BenchmarkRow> = {}): BenchmarkRow {
 
 function makeBlankRows(count = 6): BenchmarkRow[] {
     return Array.from({ length: count }, () => makeRow())
+}
+
+function buildRowsWithTrailingBlankRows(contentRows: BenchmarkRow[]) {
+    const nextRows = contentRows.map(syncBenchmarkRow)
+    if (nextRows.length === 0) return makeBlankRows()
+
+    const blankCount = nextRows.length >= 6 ? 1 : 6 - nextRows.length
+    return [...nextRows, ...makeBlankRows(blankCount)]
 }
 
 function formatMetric(value: number | null) {
@@ -426,11 +444,16 @@ function CreativeBenchmarkPageContent() {
     const [selectedWeekStart, setSelectedWeekStart] = useState(currentWeekStart)
     const [showWeekPicker, setShowWeekPicker] = useState(false)
     const [showAddApp, setShowAddApp] = useState(false)
+    const [showPasteModal, setShowPasteModal] = useState(false)
     const [appLink, setAppLink] = useState('')
     const [appCategory, setAppCategory] = useState('Tiện ích')
     const [appMeta, setAppMeta] = useState('App mới')
     const [detectedApp, setDetectedApp] = useState<DetectedApp | null>(null)
     const [detectingApp, setDetectingApp] = useState(false)
+    const [pasteInput, setPasteInput] = useState('')
+    const [parsingPaste, setParsingPaste] = useState(false)
+    const [parsedPasteRows, setParsedPasteRows] = useState<ParsedImportRow[]>([])
+    const [parsedPasteSource, setParsedPasteSource] = useState<'ai' | 'local' | null>(null)
     const [rows, setRows] = useState<BenchmarkRow[]>(() => makeBlankRows())
     const [weeklyStats, setWeeklyStats] = useState<WeeklyStats>(() => makeBlankStats())
     const [, setStorageMode] = useState<StorageMode>('checking')
@@ -712,6 +735,89 @@ function CreativeBenchmarkPageContent() {
             return nextRows
         })
         markDirty()
+    }
+
+    const resetPasteModal = () => {
+        setShowPasteModal(false)
+        setPasteInput('')
+        setParsedPasteRows([])
+        setParsedPasteSource(null)
+        setParsingPaste(false)
+    }
+
+    const parsePastedRows = async () => {
+        const input = pasteInput.trim()
+        if (!input) {
+            setMessage({ type: 'error', text: 'Hãy dán dữ liệu creative trước khi phân tích' })
+            return
+        }
+
+        setParsingPaste(true)
+        setParsedPasteRows([])
+        setParsedPasteSource(null)
+        setMessage(null)
+
+        try {
+            const response = await fetch('/api/creative-benchmark/parse', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    input,
+                    defaultMarket: weeklyStats.benchmarkMarket || 'US',
+                }),
+            })
+
+            const payload = await response.json().catch(() => null)
+            if (!response.ok) {
+                throw new Error(payload?.error || 'Chưa phân tích được dữ liệu creative')
+            }
+
+            const nextRows = Array.isArray(payload?.rows) ? payload.rows as ParsedImportRow[] : []
+            if (nextRows.length === 0) {
+                throw new Error('Chưa nhận diện được creative nào từ dữ liệu đã dán')
+            }
+
+            setParsedPasteRows(nextRows)
+            setParsedPasteSource(payload?.source === 'ai' ? 'ai' : 'local')
+        } catch (error) {
+            setMessage({
+                type: 'error',
+                text: error instanceof Error ? error.message : 'Chưa phân tích được dữ liệu creative',
+            })
+        } finally {
+            setParsingPaste(false)
+        }
+    }
+
+    const importParsedRows = (mode: 'append' | 'replace') => {
+        if (parsedPasteRows.length === 0) {
+            return
+        }
+
+        setRows(prev => {
+            const existingRows = mode === 'append' ? prev.filter(hasRowContent) : []
+            const importedRows = parsedPasteRows.map(row => makeRow({
+                ideaName: row.ideaName,
+                market: row.market || weeklyStats.benchmarkMarket || 'US',
+                ctr: row.ctr,
+                cvr: row.cvr,
+                cpi: row.cpi,
+                cpm: row.cpm,
+                win: row.win,
+            }))
+            const nextRows = buildRowsWithTrailingBlankRows([...existingRows, ...importedRows])
+            saveLocalRows(selectedAppId, selectedWeekKey, nextRows)
+            return nextRows
+        })
+
+        markDirty()
+        setMessage({
+            type: 'success',
+            text: `Đã ${mode === 'replace' ? 'thay toàn bộ' : 'nối thêm'} ${parsedPasteRows.length} creative từ ${parsedPasteSource === 'ai' ? 'Gemini' : 'parser cục bộ'}`,
+        })
+        resetPasteModal()
     }
 
     const saveRows = useCallback(async ({ silent = false }: SaveRowsOptions = {}) => {
@@ -1378,13 +1484,21 @@ function CreativeBenchmarkPageContent() {
                                             </div>
                                         )}
                                     </div>
-                                    <button
-                                        onClick={addRow}
-                                        className="h-9 px-3 rounded-lg bg-slate-800 border border-slate-700 text-sm font-semibold text-slate-200 hover:bg-slate-700 transition-colors flex items-center gap-2 w-fit"
-                                    >
-                                        <Plus className="w-4 h-4" />
-                                        Thêm idea
-                                    </button>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <button
+                                            onClick={() => setShowPasteModal(true)}
+                                            className="h-9 px-3 rounded-lg bg-violet-500/15 border border-violet-500/30 text-sm font-semibold text-violet-200 hover:bg-violet-500/25 transition-colors"
+                                        >
+                                            Dán dữ liệu
+                                        </button>
+                                        <button
+                                            onClick={addRow}
+                                            className="h-9 px-3 rounded-lg bg-slate-800 border border-slate-700 text-sm font-semibold text-slate-200 hover:bg-slate-700 transition-colors flex items-center gap-2 w-fit"
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                            Thêm idea
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div className="px-4 py-3 border-b border-slate-800 bg-amber-500/10">
@@ -1531,6 +1645,161 @@ function CreativeBenchmarkPageContent() {
                     </div>
                 </div>
             </div>
+
+            {showPasteModal && (
+                <div className="fixed inset-0 z-[260] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+                    <div className="w-full max-w-6xl rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl shadow-slate-950/50">
+                        <div className="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4">
+                            <div>
+                                <h3 className="text-lg font-bold text-white">Dán dữ liệu creative</h3>
+                                <p className="mt-1 text-sm text-slate-400">
+                                    Dán bảng từ Excel, Sheets hoặc text tự do. Gemini sẽ ưu tiên parse trước, nếu không khả dụng sẽ tự fallback sang parser cục bộ.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={resetPasteModal}
+                                className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+                                aria-label="Đóng hộp dán dữ liệu"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        <div className="grid gap-5 px-5 py-5 lg:grid-cols-[1.1fr_0.9fr]">
+                            <div>
+                                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                                    Dữ liệu đầu vào
+                                </label>
+                                <textarea
+                                    value={pasteInput}
+                                    onChange={event => {
+                                        setPasteInput(event.target.value)
+                                        setParsedPasteRows([])
+                                        setParsedPasteSource(null)
+                                    }}
+                                    placeholder={[
+                                        'Garden_ModifySpy 0306 | US | 1.37% | 38.2% | $0.32 | $1.58 | win',
+                                        'Creative B\tUS\t1.50%\t20%\t$0.40\t$2.10',
+                                    ].join('\n')}
+                                    className="mt-2 min-h-[280px] w-full rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                />
+                                <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-xs text-slate-400">
+                                    Hỗ trợ tốt nhất khi mỗi creative nằm trên 1 dòng theo thứ tự:
+                                    `Tên idea | Market | CTR | CVR | CPI | CPM | Win`
+                                </div>
+                                <div className="mt-4 flex flex-wrap items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => void parsePastedRows()}
+                                        disabled={parsingPaste}
+                                        className="h-10 rounded-xl bg-violet-500 px-4 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        {parsingPaste ? 'Đang phân tích...' : 'Phân tích bằng Gemini'}
+                                    </button>
+                                    <span className="text-xs text-slate-500">
+                                        Market mặc định hiện tại: {weeklyStats.benchmarkMarket || 'US'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Preview</p>
+                                        <p className="mt-1 text-sm text-slate-500">
+                                            {parsedPasteRows.length > 0
+                                                ? `Đã nhận ${parsedPasteRows.length} creative từ ${parsedPasteSource === 'ai' ? 'Gemini' : 'parser cục bộ'}`
+                                                : 'Chưa có dữ liệu preview'}
+                                        </p>
+                                    </div>
+                                    {parsedPasteSource && (
+                                        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${parsedPasteSource === 'ai'
+                                            ? 'bg-violet-500/15 text-violet-200'
+                                            : 'bg-slate-800 text-slate-300'
+                                            }`}>
+                                            {parsedPasteSource === 'ai' ? 'Gemini' : 'Fallback'}
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div className="mt-3 max-h-[360px] overflow-auto rounded-2xl border border-slate-800 bg-slate-950/70">
+                                    {parsedPasteRows.length > 0 ? (
+                                        <table className="w-full min-w-[520px]">
+                                            <thead className="bg-slate-900/90">
+                                                <tr>
+                                                    <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-400">Idea</th>
+                                                    <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-400">Market</th>
+                                                    <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-slate-400">CTR</th>
+                                                    <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-slate-400">CVR</th>
+                                                    <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-slate-400">CPI</th>
+                                                    <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-slate-400">CPM</th>
+                                                    <th className="px-3 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-400">Win</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-800">
+                                                {parsedPasteRows.map((row, index) => (
+                                                    <tr key={`${row.ideaName}-${index}`} className="hover:bg-slate-800/40">
+                                                        <td className="px-3 py-2 text-sm text-white">{row.ideaName || `Creative ${index + 1}`}</td>
+                                                        <td className="px-3 py-2 text-sm text-slate-300">{row.market}</td>
+                                                        <td className="px-3 py-2 text-right text-sm text-slate-300">{row.ctr || '--'}</td>
+                                                        <td className="px-3 py-2 text-right text-sm text-slate-300">{row.cvr || '--'}</td>
+                                                        <td className="px-3 py-2 text-right text-sm text-slate-300">{row.cpi || '--'}</td>
+                                                        <td className="px-3 py-2 text-right text-sm text-slate-300">{row.cpm || '--'}</td>
+                                                        <td className="px-3 py-2 text-center">
+                                                            <span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-bold ${row.win
+                                                                ? 'bg-amber-500/15 text-amber-200'
+                                                                : 'bg-slate-800 text-slate-400'
+                                                                }`}>
+                                                                {row.win ? 'Win' : 'No'}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    ) : (
+                                        <div className="flex min-h-[220px] items-center justify-center px-6 text-center text-sm text-slate-500">
+                                            Dán dữ liệu vào bên trái rồi bấm “Phân tích bằng Gemini” để xem preview trước khi nhập vào bảng.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 px-5 py-4">
+                            <p className="text-xs text-slate-500">
+                                Bạn có thể nối thêm vào bảng hiện tại hoặc thay toàn bộ bảng của app trong tuần đang chọn.
+                            </p>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={resetPasteModal}
+                                    className="h-10 rounded-xl border border-slate-700 px-4 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-800"
+                                >
+                                    Đóng
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => importParsedRows('append')}
+                                    disabled={parsedPasteRows.length === 0}
+                                    className="h-10 rounded-xl border border-violet-500/30 bg-violet-500/15 px-4 text-sm font-semibold text-violet-100 transition-colors hover:bg-violet-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    Nối vào bảng
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => importParsedRows('replace')}
+                                    disabled={parsedPasteRows.length === 0}
+                                    className="h-10 rounded-xl bg-emerald-500 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    Thay toàn bộ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </DashboardLayout>
     )
 }
