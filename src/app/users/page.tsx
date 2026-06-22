@@ -153,9 +153,9 @@ export default function UsersPage() {
                 delete next[userId]
                 return next
             })
-            alert('Da luu thanh cong!')
+            alert('Đã lưu thành công!')
         } else {
-            alert(`Loi khi luu: ${error.message}`)
+            alert(`Lỗi khi lưu: ${error.message}`)
         }
 
         setSaving(null)
@@ -167,7 +167,7 @@ export default function UsersPage() {
                 <div className="min-h-screen bg-slate-950 flex items-center justify-center">
                     <div className="flex flex-col items-center gap-4">
                         <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
-                        <p className="text-slate-400">Loading users...</p>
+                        <p className="text-slate-400">Đang tải danh sách người dùng...</p>
                     </div>
                 </div>
             </DashboardLayout>
@@ -179,37 +179,37 @@ export default function UsersPage() {
             <div className="min-h-screen bg-slate-950">
                 <div className="px-6 py-8">
                     <div className="mb-8">
-                        <h1 className="text-2xl font-bold text-white mb-2">Quan ly nguoi dung</h1>
-                        <p className="text-slate-400">Phan quyen va cap nhat thong tin nguoi dung</p>
+                        <h1 className="text-2xl font-bold text-white mb-2">Quản lý người dùng</h1>
+                        <p className="text-slate-400">Phân quyền và cập nhật thông tin người dùng</p>
                         <p className="text-sm text-purple-400 mt-2">
-                            Dang dang nhap: {currentUser?.email}
+                            Đang đăng nhập: {currentUser?.email}
                         </p>
                     </div>
 
                     <div className="flex flex-wrap gap-4 mb-6">
                         <div className="flex items-center gap-2 text-sm">
                             <div className="w-3 h-3 rounded-full bg-red-500" />
-                            <span className="text-slate-400">Creative Manager: xem ca hai team va quan ly users</span>
+                            <span className="text-slate-400">Creative Manager: xem cả hai team và quản lý người dùng</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                             <div className="w-3 h-3 rounded-full bg-amber-500" />
-                            <span className="text-slate-400">Admin Creative: xem cac thanh vien video</span>
+                            <span className="text-slate-400">Admin Creative: xem các thành viên video</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                             <div className="w-3 h-3 rounded-full bg-violet-500" />
-                            <span className="text-slate-400">Idea Creator: chi xem Benchmark Creative va Signal Dashboard, khong xem khu Video va Graphic</span>
+                            <span className="text-slate-400">Idea Creator: chỉ xem Benchmark Creative và Signal Dashboard, không xem khu Video và Graphic</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                             <div className="w-3 h-3 rounded-full bg-cyan-500" />
-                            <span className="text-slate-400">Admin Design: xem cac thanh vien design</span>
+                            <span className="text-slate-400">Admin Design: xem các thành viên design</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                             <div className="w-3 h-3 rounded-full bg-slate-500" />
-                            <span className="text-slate-400">Member: chi xem duoc chinh minh</span>
+                            <span className="text-slate-400">Member: chỉ xem được chính mình</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                             <div className="w-3 h-3 rounded-full bg-slate-700" />
-                            <span className="text-slate-400">None: khong truy cap project</span>
+                            <span className="text-slate-400">None: không truy cập dự án</span>
                         </div>
                     </div>
 
@@ -219,11 +219,11 @@ export default function UsersPage() {
                                 <thead>
                                     <tr className="border-b border-slate-700/50">
                                         <th className="text-left py-4 px-5 text-sm font-medium text-slate-400">Email</th>
-                                        <th className="text-left py-4 px-5 text-sm font-medium text-slate-400">Ten day du</th>
+                                        <th className="text-left py-4 px-5 text-sm font-medium text-slate-400">Tên đầy đủ</th>
                                         <th className="text-center py-4 px-5 text-sm font-medium text-slate-400">Video Creative</th>
                                         <th className="text-center py-4 px-5 text-sm font-medium text-slate-400">Idea Creator</th>
                                         <th className="text-center py-4 px-5 text-sm font-medium text-slate-400">Graphic Design</th>
-                                        <th className="text-right py-4 px-5 text-sm font-medium text-slate-400">Thao tac</th>
+                                        <th className="text-right py-4 px-5 text-sm font-medium text-slate-400">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -254,7 +254,7 @@ export default function UsersPage() {
                                                         type="text"
                                                         value={currentFullName}
                                                         onChange={event => handleFieldChange(user.id, 'full_name', event.target.value)}
-                                                        placeholder="Nhap ten khop Asana..."
+                                                        placeholder="Nhập tên khớp Asana..."
                                                         className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
                                                     />
                                                 </td>
@@ -304,7 +304,7 @@ export default function UsersPage() {
                                                             ) : (
                                                                 <Save className="w-4 h-4" />
                                                             )}
-                                                            Luu
+                                                            Lưu
                                                         </button>
                                                     )}
                                                 </td>
@@ -317,22 +317,22 @@ export default function UsersPage() {
 
                         {users.length === 0 && (
                             <div className="text-center py-12 text-slate-500">
-                                Chua co nguoi dung nao
+                                Chưa có người dùng nào
                             </div>
                         )}
                     </div>
 
                     <div className="mt-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
                         <p className="text-amber-300 text-sm">
-                            <strong>Luu y:</strong> Ten day du phai khop voi ten trong Asana de he thong loc dung data.
+                            <strong>Lưu ý:</strong> Tên đầy đủ phải khớp với tên trong Asana để hệ thống lọc đúng data.
                             <br />
-                            <strong>Video Creative:</strong> quan ly quyen team creative thong thuong.
+                            <strong>Video Creative:</strong> quản lý quyền team creative thông thường.
                             <br />
-                            <strong>Idea Creator:</strong> tach rieng de de nhin va se uu tien vao 2 man Benchmark Creative, Signal Dashboard.
+                            <strong>Idea Creator:</strong> tách riêng để dễ nhìn và sẽ ưu tiên vào 2 màn Benchmark Creative, Signal Dashboard.
                             <br />
-                            <strong>Graphic Design:</strong> quan ly quyen team design.
+                            <strong>Graphic Design:</strong> quản lý quyền team design.
                             <br />
-                            <strong>Dashboard / Benchmark:</strong> phan quyen rieng cho Overview va hai man Benchmark.
+                            <strong>Dashboard / Benchmark:</strong> phân quyền riêng cho Overview và hai màn Benchmark.
                         </p>
                     </div>
                 </div>

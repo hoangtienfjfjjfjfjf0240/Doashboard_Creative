@@ -77,7 +77,7 @@ export default function RegisterPage() {
                         </svg>
                     </div>
                     <h2 className="text-xl font-semibold text-white mb-2">Account Created!</h2>
-                    <p className="text-slate-400">Admin co the vao Users de phan quyen ngay sau khi ban dang ky.</p>
+                    <p className="text-slate-400">Admin có thể vào Users để phân quyền ngay sau khi bạn đăng ký.</p>
                 </div>
             </div>
         )

@@ -572,7 +572,7 @@ export default function CreativeBenchmarkDashboardPage() {
                 if (!response.ok) {
                     return {
                         data: null,
-                        error: payload?.error || 'Khong tai duoc ti le deadline.',
+                        error: payload?.error || 'Không tải được tỷ lệ deadline.',
                     }
                 }
 
@@ -583,7 +583,7 @@ export default function CreativeBenchmarkDashboardPage() {
             })
             .catch(error => ({
                 data: null,
-                error: error instanceof Error ? error.message : 'Khong tai duoc ti le deadline.',
+                error: error instanceof Error ? error.message : 'Không tải được tỷ lệ deadline.',
             }))
 
         const [entriesResult, statsResult, deadlineResult] = await Promise.all([
@@ -807,8 +807,8 @@ export default function CreativeBenchmarkDashboardPage() {
         ? `${deadlineStats.onTimeCount}/${deadlineStats.totalIdeaCreators} (${deadlineRate}%)`
         : '--'
     const deadlineHint = deadlineStats
-        ? `Idea Creator luu truoc 23:59 thu 2. Tre: ${deadlineStats.lateCount}, chua nhap: ${deadlineStats.pendingCount}.`
-        : 'Chua tai duoc ti le deadline thu 2.'
+        ? `Idea Creator lưu trước 23:59 thứ 2. Trễ: ${deadlineStats.lateCount}, chưa nhập: ${deadlineStats.pendingCount}.`
+        : 'Chưa tải được tỷ lệ deadline thứ 2.'
 
     if (userLoading || !user || !canAccessBenchmark) {
         return (
@@ -999,7 +999,7 @@ export default function CreativeBenchmarkDashboardPage() {
                             accentClass="bg-amber-500/10 text-amber-100"
                         />
                         <KpiCard
-                            label="Dung deadline T2"
+                            label="Đúng deadline T2"
                             value={deadlineValue}
                             hint={deadlineHint}
                             accentClass="bg-sky-500/10 text-sky-200"

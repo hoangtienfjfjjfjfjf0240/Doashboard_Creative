@@ -1,11 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 
 export default function LoginPage() {
+    return (
+        <Suspense fallback={<LoginPageFallback />}>
+            <LoginPageContent />
+        </Suspense>
+    )
+}
+
+function LoginPageContent() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [error, setError] = useState('')
@@ -29,7 +37,6 @@ export default function LoginPage() {
             if (error) {
                 setError(error.message)
             } else {
-                // Check user profile to determine redirect destination
                 try {
                     const { data: { user: authUser } } = await supabase.auth.getUser()
                     if (authUser) {
@@ -71,13 +78,12 @@ export default function LoginPage() {
                         router.push('/dashboard')
                     }
                 } catch {
-                    // If profile query fails, default to dashboard
                     router.push('/dashboard')
                 }
                 router.refresh()
             }
         } catch {
-            setError('An unexpected error occurred')
+            setError('Đã xảy ra lỗi ngoài mong đợi.')
         } finally {
             setLoading(false)
         }
@@ -86,7 +92,6 @@ export default function LoginPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
             <div className="w-full max-w-md">
-                {/* Logo */}
                 <div className="text-center mb-12">
                     <div className="inline-flex items-center justify-center mb-8">
                         <img
@@ -103,7 +108,6 @@ export default function LoginPage() {
                     </p>
                 </div>
 
-                {/* Card */}
                 <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-10 shadow-2xl border border-white/10">
                     <h2 className="text-2xl font-semibold text-white mb-8 tracking-widest text-center">
                         Đăng nhập
@@ -118,7 +122,7 @@ export default function LoginPage() {
                                 id="email"
                                 type="email"
                                 value={email}
-                                onChange={(e) => setEmail(e.target.value)}
+                                onChange={event => setEmail(event.target.value)}
                                 className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                                 placeholder="you@example.com"
                                 required
@@ -133,7 +137,7 @@ export default function LoginPage() {
                                 id="password"
                                 type="password"
                                 value={password}
-                                onChange={(e) => setPassword(e.target.value)}
+                                onChange={event => setPassword(event.target.value)}
                                 className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                                 placeholder="••••••••"
                                 required
@@ -185,6 +189,14 @@ export default function LoginPage() {
                     Creative Team Performance Dashboard
                 </p>
             </div>
+        </div>
+    )
+}
+
+function LoginPageFallback() {
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+            <div className="w-10 h-10 rounded-full border-4 border-purple-500 border-t-transparent animate-spin" />
         </div>
     )
 }

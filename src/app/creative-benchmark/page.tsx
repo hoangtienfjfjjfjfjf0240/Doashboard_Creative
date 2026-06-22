@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
     addDays,
@@ -404,6 +404,14 @@ function groupWeeksByMonth(weeks: ReturnType<typeof generateTimelineWeeks>) {
 }
 
 export default function CreativeBenchmarkPage() {
+    return (
+        <Suspense fallback={<CreativeBenchmarkPageFallback />}>
+            <CreativeBenchmarkPageContent />
+        </Suspense>
+    )
+}
+
+function CreativeBenchmarkPageContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const supabase = useMemo(() => createClient(), [])
@@ -1536,6 +1544,16 @@ function RateBadge({ value, tone }: { value: number; tone: 'purple' | 'amber' })
         <span className={`inline-flex min-w-14 justify-center px-2 py-1 rounded-md border text-xs font-bold ${className}`}>
             {value}%
         </span>
+    )
+}
+
+function CreativeBenchmarkPageFallback() {
+    return (
+        <DashboardLayout hideAgent>
+            <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+                <div className="w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+        </DashboardLayout>
     )
 }
 
