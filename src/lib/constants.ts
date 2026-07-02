@@ -2,7 +2,26 @@
 // Shared constants — single source of truth
 // ──────────────────────────────────────────────────
 
-/** Video Creative point config */
+/** Video Creative legacy point config (before H2 2026) */
+export const LEGACY_CREATIVE_POINT_CONFIG: Record<string, number> = {
+    S1: 3,      // Bumper Ads (6s)
+    S2A: 2,     // Gen Hook Prompt to video
+    S2B: 2.5,   // Gen Hook Image to video
+    S3A: 2,     // Json_Button
+    S3B: 5,     // Json_Tutorial
+    S4: 3,      // UGC
+    S5: 6,      // Motion shot ads
+    S6: 7,      // Source + Roto/Tracking
+    S7: 10,     // Quay dá»±ng + Roto/Tracking
+    S7A: 5,     // Quay dá»±ng dáº¡ng A
+    S8: 48,     // Video HomePage
+    S9A: 2.5,   // Drama: Duration < 10 min
+    S9B: 4,     // Drama: Duration 11 - 20 min
+    S9C: 7,     // Drama: Duration > 21 min
+    S10A: 1,    // Translate
+}
+
+/** Video Creative point config (from H2 2026 onward) */
 export const CREATIVE_POINT_CONFIG: Record<string, number> = {
     S1: 3,      // Bumper Ads (6s)
     S2A: 1,     // Gen Hook Prompt to video
@@ -21,6 +40,9 @@ export const CREATIVE_POINT_CONFIG: Record<string, number> = {
     S9C: 7,     // Drama: Duration > 21 min
     S10A: 1,    // Translate
 }
+
+/** H2 2026 cutover date for new Video Creative point rule */
+export const CREATIVE_POINT_RULE_H2_START_DATE = '2026-07-01'
 
 /** Graphic Design point config — keys must match Asana "Asset" enum values */
 export const DESIGN_POINT_CONFIG: Record<string, number> = {

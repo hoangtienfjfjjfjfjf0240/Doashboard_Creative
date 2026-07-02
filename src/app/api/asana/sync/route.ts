@@ -1,6 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
-import { CREATIVE_POINT_CONFIG, DESIGN_POINT_CONFIG, ASANA_API_BASE } from '@/lib/constants'
+import {
+    ASANA_API_BASE,
+    CREATIVE_POINT_CONFIG,
+    CREATIVE_POINT_RULE_H2_START_DATE,
+    DESIGN_POINT_CONFIG,
+    LEGACY_CREATIVE_POINT_CONFIG,
+} from '@/lib/constants'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,6 +34,23 @@ interface AsanaTask {
 }
 
 type ProjectType = 'creative' | 'graphic'
+
+function getCreativePointsForSync(
+    videoType: string | null,
+    videoCount: number,
+    dueDate: string | null
+) {
+    if (!videoType) {
+        return 0
+    }
+
+    const pointConfig =
+        dueDate && dueDate < CREATIVE_POINT_RULE_H2_START_DATE
+            ? LEGACY_CREATIVE_POINT_CONFIG
+            : CREATIVE_POINT_CONFIG
+
+    return (pointConfig[videoType] || 0) * videoCount
+}
 
 function getProjectConfig(projectType: ProjectType) {
     if (projectType === 'graphic') {
@@ -101,11 +124,20 @@ async function syncProject(projectType: ProjectType): Promise<{ processed: numbe
     // ── Step 1: Fetch ALL existing tasks in ONE batch query ──
     const { data: existingTasksData } = await supabase
         .from('tasks')
-        .select('asana_id, due_date, name, assignee_name, status')
+        .select('asana_id, due_date, name, assignee_name, status, points')
         .eq('project_type', projectType)
 
     // Build a lookup map for O(1) access
-    const existingMap = new Map<string, { due_date: string | null; name: string; assignee_name: string | null; status: string }>()
+    const existingMap = new Map<
+        string,
+        {
+            due_date: string | null
+            name: string
+            assignee_name: string | null
+            status: string
+            points: number | null
+        }
+    >()
     if (existingTasksData) {
         existingTasksData.forEach(t => existingMap.set(t.asana_id, t))
     }
@@ -117,6 +149,8 @@ async function syncProject(projectType: ProjectType): Promise<{ processed: numbe
     const dueDateChanges: any[] = []
 
     for (const task of asanaTasks) {
+        const existing = existingMap.get(task.gid)
+
         const typeField = task.custom_fields?.find(f => {
             const name = f.name.toLowerCase()
             return config.typeFieldNames.some(tf => name.includes(tf) || name === tf)
@@ -157,7 +191,12 @@ async function syncProject(projectType: ProjectType): Promise<{ processed: numbe
             completedAt = completedDateField?.display_value || new Date().toISOString()
         }
 
-        const points = videoType ? (config.pointConfig[videoType] || 0) * videoCount : 0
+        const points =
+            projectType === 'creative'
+                ? getCreativePointsForSync(videoType, videoCount, task.due_on)
+                : videoType
+                    ? (config.pointConfig[videoType] || 0) * videoCount
+                    : 0
 
         const taskData = {
             asana_id: task.gid,
@@ -181,7 +220,6 @@ async function syncProject(projectType: ProjectType): Promise<{ processed: numbe
         allTaskData.push(taskData)
 
         // Track due date changes in memory (no DB call here)
-        const existing = existingMap.get(task.gid)
         if (existing && existing.due_date !== taskData.due_date) {
             dueDateChanges.push({
                 task_id: task.gid,

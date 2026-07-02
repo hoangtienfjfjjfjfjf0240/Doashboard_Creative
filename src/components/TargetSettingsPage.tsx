@@ -104,6 +104,11 @@ function getSelectedMonthLabel(month: number, year: number) {
     return `${TARGET_MONTH_LABELS[month]} / ${year}`
 }
 
+function canManageDefaultTarget(user: ScreenUser | null) {
+    if (!user) return false
+    return ['admin', 'lead'].includes(user.role) || ['admin', 'lead', 'manager'].includes(user.projectRole)
+}
+
 export default function TargetSettingsPage({ projectType, theme }: TargetSettingsPageProps) {
     const router = useRouter()
     const supabase = useMemo(() => createClient(), [])
@@ -174,6 +179,7 @@ export default function TargetSettingsPage({ projectType, theme }: TargetSetting
         () => getSelectedMonthLabel(selectedMonth, selectedPeriod.year),
         [selectedMonth, selectedPeriod.year]
     )
+    const canEditDefaultTarget = useMemo(() => canManageDefaultTarget(user), [user])
 
     const fetchData = useCallback(async () => {
         try {
@@ -429,6 +435,12 @@ export default function TargetSettingsPage({ projectType, theme }: TargetSetting
     }
 
     const applyToMonth = () => {
+        if (!canEditDefaultTarget) {
+            setMessage({ type: 'error', text: 'Chỉ manager mới được chỉnh mục tiêu mặc định.' })
+            setTimeout(() => setMessage(null), 3000)
+            return
+        }
+
         const targetValue = parseInt(defaultTarget) || 160
 
         setTargets(previous => previous.map(target => {
@@ -552,8 +564,17 @@ export default function TargetSettingsPage({ projectType, theme }: TargetSetting
                                 inputMode="numeric"
                                 pattern="[0-9]*"
                                 value={defaultTarget}
-                                onChange={event => setDefaultTarget(event.target.value.replace(/[^0-9]/g, ''))}
-                                className={`w-24 px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 ${theme.accentFocus}`}
+                                onChange={event => {
+                                    if (!canEditDefaultTarget) return
+                                    setDefaultTarget(event.target.value.replace(/[^0-9]/g, ''))
+                                }}
+                                disabled={!canEditDefaultTarget}
+                                readOnly={!canEditDefaultTarget}
+                                className={`w-24 px-3 py-1.5 border rounded-lg text-sm text-white focus:outline-none focus:ring-2 ${theme.accentFocus} ${
+                                    canEditDefaultTarget
+                                        ? 'bg-slate-700 border-slate-600'
+                                        : 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
+                                }`}
                             />
                             <span className="text-sm text-slate-500">điểm/tuần</span>
                         </div>
@@ -616,7 +637,12 @@ export default function TargetSettingsPage({ projectType, theme }: TargetSetting
 
                         <button
                             onClick={applyToMonth}
-                            className={`flex items-center gap-2 px-4 py-2 ${theme.accentSoftBg} ${theme.accentSoftHover} border ${theme.accentSoftBorder} rounded-xl text-sm ${theme.accentSoftText} transition-colors`}
+                            disabled={!canEditDefaultTarget}
+                            className={`flex items-center gap-2 px-4 py-2 border rounded-xl text-sm transition-colors ${
+                                canEditDefaultTarget
+                                    ? `${theme.accentSoftBg} ${theme.accentSoftHover} ${theme.accentSoftBorder} ${theme.accentSoftText}`
+                                    : 'bg-slate-800/60 border-slate-700 text-slate-500 cursor-not-allowed'
+                            }`}
                         >
                             + Áp dụng cho {selectedMonthLabel}
                         </button>

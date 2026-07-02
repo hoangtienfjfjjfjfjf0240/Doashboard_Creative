@@ -156,6 +156,12 @@ function getWeekByKey(weekKey: string): DashboardTimelineWeek | undefined {
     return undefined
 }
 
+function getWeeksForHalf(halfKey: TargetHalfKey) {
+    return DASHBOARD_TIMELINE
+        .flatMap(monthData => monthData.weeks)
+        .filter(weekData => getDashboardHalfForDate(weekData.startDate) === halfKey)
+}
+
 export default function FilterBar({
     weekStart,
     onWeekChange,
@@ -269,6 +275,13 @@ export default function FilterBar({
     const handleHalfChange = (halfKey: TargetHalfKey) => {
         const range = getDateRangeForHalf(halfKey)
         const firstWeekStart = getDashboardFirstWeekStartForHalf(halfKey) ?? range.start
+        const weeksInHalf = getWeeksForHalf(halfKey)
+        const today = new Date()
+        const currentWeekInHalf = weeksInHalf.find(weekData => {
+            const weekEnd = endOfDay(weekData.endDate)
+            return today >= weekData.startDate && today <= weekEnd
+        })
+        const referenceWeekStart = currentWeekInHalf?.startDate ?? firstWeekStart
 
         onHalfChange(halfKey)
         onPresetChange('half')
@@ -279,7 +292,7 @@ export default function FilterBar({
             onDateRangeChange(range)
         }
 
-        onWeekChange(firstWeekStart)
+        onWeekChange(referenceWeekStart)
         setShowHalfDropdown(false)
         setShowDateDropdown(false)
         setShowCustomDatePicker(false)
