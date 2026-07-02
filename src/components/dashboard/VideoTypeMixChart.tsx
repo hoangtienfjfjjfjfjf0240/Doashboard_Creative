@@ -15,6 +15,7 @@ interface VideoTypeMixChartProps {
 const VIDEO_TYPE_COLORS: Record<string, { badge: string; bar: string; glow: string }> = {
     S1: { badge: 'bg-slate-500', bar: 'linear-gradient(90deg, #64748b, #94a3b8)', glow: 'rgba(100,116,139,0.3)' },
     S2A: { badge: 'bg-blue-500', bar: 'linear-gradient(90deg, #3b82f6, #60a5fa)', glow: 'rgba(59,130,246,0.3)' },
+    S2C: { badge: 'bg-cyan-500', bar: 'linear-gradient(90deg, #06b6d4, #22d3ee)', glow: 'rgba(6,182,212,0.3)' },
     S2B: { badge: 'bg-sky-500', bar: 'linear-gradient(90deg, #0ea5e9, #38bdf8)', glow: 'rgba(14,165,233,0.3)' },
     S3A: { badge: 'bg-emerald-500', bar: 'linear-gradient(90deg, #10b981, #34d399)', glow: 'rgba(16,185,129,0.3)' },
     S3B: { badge: 'bg-green-500', bar: 'linear-gradient(90deg, #22c55e, #4ade80)', glow: 'rgba(34,197,94,0.3)' },

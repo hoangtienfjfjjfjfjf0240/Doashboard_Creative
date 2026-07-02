@@ -16,6 +16,13 @@ import {
     DueDateStats,
     DailyPointsChart,
 } from '@/components/dashboard'
+import {
+    getDashboardDateLabel,
+    getDashboardDefaultHalf,
+    getDateRangeFromDashboardPreset,
+    type DashboardScopePreset,
+} from '@/lib/dashboardDatePresets'
+import type { TargetHalfKey } from '@/lib/targetTimeline'
 import type { Task, Target, DayOffEntry } from '@/lib/types'
 import { DESIGN_POINT_CONFIG, WORKING_DAYS_PER_WEEK, FALLBACK_TARGET, TOTAL_WEEKS, isTargetDeductionDay } from '@/lib/constants'
 
@@ -33,17 +40,17 @@ export default function GraphicDashboardPage() {
     const [user, setUser] = useState<{ email: string; role: string; roleGraphic: string; fullName: string; asanaEmail: string; asanaName: string } | null>(null)
 
     // Filter state
-    const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
+    const [weekStart, setWeekStart] = useState(() => {
+        const defaultHalf = getDashboardDefaultHalf()
+        const defaultRange = getDateRangeFromDashboardPreset('week', defaultHalf)
+        return startOfWeek(defaultRange.start, { weekStartsOn: 1 })
+    })
     const [selectedAssignees, setSelectedAssignees] = useState<string[]>([])
     const [status, setStatus] = useState<'all' | 'done' | 'not_done'>('all')
     const [selectedVideoTypes, setSelectedVideoTypes] = useState<string[]>([])
-    const [dateRange, setDateRange] = useState(() => {
-        const today = new Date()
-        const weekMon = startOfWeek(today, { weekStartsOn: 1 })
-        const weekFri = addDays(weekMon, 4)
-        return { start: weekMon, end: weekFri }
-    })
-    const [selectedPreset, setSelectedPreset] = useState<'week' | '7days' | '14days' | '28days' | '30days' | 'month-1' | 'month-2' | 'month-3' | 'month-4' | 'month-5' | 'custom'>('week')
+    const [selectedHalf, setSelectedHalf] = useState<TargetHalfKey>(() => getDashboardDefaultHalf())
+    const [dateRange, setDateRange] = useState(() => getDateRangeFromDashboardPreset('week', getDashboardDefaultHalf()))
+    const [selectedPreset, setSelectedPreset] = useState<DashboardScopePreset | 'custom'>('week')
     const [selectedWeeks, setSelectedWeeks] = useState<Set<string>>(new Set())
 
     // Data state
@@ -62,6 +69,11 @@ export default function GraphicDashboardPage() {
             .toLowerCase()
             .trim()
     }
+
+    const dashboardDateLabel = useMemo(
+        () => getDashboardDateLabel(selectedPreset, dateRange, selectedWeeks.size, selectedHalf),
+        [dateRange, selectedHalf, selectedPreset, selectedWeeks]
+    )
 
     // Get current user
     useEffect(() => {
@@ -169,7 +181,7 @@ export default function GraphicDashboardPage() {
                 initialLoadDone.current = true
             }
         }
-    }, [supabase, dateRange])
+    }, [supabase])
 
     fetchDataRef.current = fetchData
 
@@ -364,6 +376,7 @@ export default function GraphicDashboardPage() {
         }
     })
 
+    const normalizedTargetMembers = targetMembers.map(normalizeName)
     const currentUserDayOffs = [...dayOffsByMemberDate.values()].filter(d => {
         if (!d.member_name || !d.date) return false
         const dateStr = d.date
@@ -379,11 +392,12 @@ export default function GraphicDashboardPage() {
             const userFullName = normalizeName(user.fullName || '')
             return dayOffName === userAsanaName || dayOffName === userFullName
         }
-        return targetMembers.includes(d.member_name)
+        return normalizedTargetMembers.includes(normalizeName(d.member_name))
     })
 
-    // Group day off deductions by week, using each member's target for that specific week
+    // Match Settings: cap deductions per member per week before subtracting from the range target.
     const dayOffDeductionsByWeek: Record<number, number> = {}
+    const dayOffDeductionsByMemberWeek: Record<string, number> = {}
     let totalDayOffDeduction = 0
     currentUserDayOffs.forEach(d => {
         const date = new Date(d.date + 'T00:00:00')
@@ -393,9 +407,16 @@ export default function GraphicDashboardPage() {
         const memberTarget = getTargetForMemberWeek(d.member_name || '', weekStart)
         const ptsPerDay = memberTarget / WORKING_DAYS_PER_WEEK
         const deduction = d.is_half_day ? ptsPerDay / 2 : ptsPerDay
-        const currentDed = dayOffDeductionsByWeek[weekNum] || 0
-        dayOffDeductionsByWeek[weekNum] = Math.min(currentDed + deduction, memberTarget)
-        totalDayOffDeduction += deduction
+        const memberWeekKey = `${normalizeName(d.member_name || '')}|${weekStart}`
+        const currentDed = dayOffDeductionsByMemberWeek[memberWeekKey] || 0
+        const nextDed = Math.min(currentDed + deduction, memberTarget)
+        const appliedDeduction = nextDed - currentDed
+
+        if (appliedDeduction <= 0) return
+
+        dayOffDeductionsByMemberWeek[memberWeekKey] = nextDed
+        dayOffDeductionsByWeek[weekNum] = (dayOffDeductionsByWeek[weekNum] || 0) + appliedDeduction
+        totalDayOffDeduction += appliedDeduction
     })
 
     // Calculate total team target: sum per member per distinct week (no overlap)
@@ -527,7 +548,7 @@ export default function GraphicDashboardPage() {
                     <div className="flex items-center justify-between">
                         <div>
                             <h2 className="text-xl font-bold text-white">Overview Graphic Design</h2>
-                            <p className="text-sm text-slate-400">{format(dateRange.start, 'MMM d')} - {format(dateRange.end, 'MMM d, yyyy')}</p>
+                            <p className="text-sm text-slate-400">{dashboardDateLabel}</p>
                         </div>
                         <div className="flex items-center gap-4">
                             <div className="text-right hidden sm:block">
@@ -564,6 +585,8 @@ export default function GraphicDashboardPage() {
                         lastSync={lastSync}
                         dateRange={dateRange}
                         onDateRangeChange={setDateRange}
+                        selectedHalf={selectedHalf}
+                        onHalfChange={setSelectedHalf}
                         selectedPreset={selectedPreset}
                         onPresetChange={setSelectedPreset}
                         selectedWeeks={selectedWeeks}

@@ -1,10 +1,50 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { ChevronLeft, ChevronRight, Calendar, Users, Filter, RefreshCw, ChevronDown, Check } from 'lucide-react'
-import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, subDays, startOfDay, endOfDay, startOfMonth, addDays, isSameDay, getDate, getMonth, addMonths } from 'date-fns'
+import { useEffect, useRef, useState } from 'react'
+import {
+    Calendar,
+    Check,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    Filter,
+    RefreshCw,
+    Users,
+} from 'lucide-react'
+import {
+    addDays,
+    addMonths,
+    differenceInCalendarDays,
+    endOfDay,
+    format,
+    getDate,
+    getMonth,
+    isSameDay,
+    startOfDay,
+    startOfMonth,
+    subDays,
+} from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { useUser } from '@/contexts/UserContext'
+import {
+    DASHBOARD_HALF_PRESETS,
+    DASHBOARD_MONTH_PRESETS,
+    DASHBOARD_QUICK_PRESETS,
+    DASHBOARD_TIMELINE,
+    DASHBOARD_TIMELINE_WEEK_KEYS,
+    DASHBOARD_YEAR_PRESETS,
+    getDashboardDateLabel,
+    getDashboardFirstWeekStartForHalf,
+    getDashboardHalfForDate,
+    getDashboardHalfLabel,
+    getDateRangeForHalf,
+    getDateRangeFromDashboardPreset,
+    type DashboardScopePreset,
+    type DashboardTimelineWeek,
+} from '@/lib/dashboardDatePresets'
+import type { TargetHalfKey } from '@/lib/targetTimeline'
+
+type DashboardQuickPresetKey = (typeof DASHBOARD_QUICK_PRESETS)[number]['key']
 
 interface FilterBarProps {
     weekStart: Date
@@ -22,146 +62,19 @@ interface FilterBarProps {
     lastSync?: string
     dateRange?: { start: Date; end: Date }
     onDateRangeChange?: (range: { start: Date; end: Date }) => void
-    // Controlled filter state
-    selectedPreset: DatePreset
-    onPresetChange: (preset: DatePreset) => void
+    selectedHalf: TargetHalfKey
+    onHalfChange: (half: TargetHalfKey) => void
+    selectedPreset: DashboardScopePreset | 'custom'
+    onPresetChange: (preset: DashboardScopePreset | 'custom') => void
     selectedWeeks: Set<string>
     onWeeksChange: (weeks: Set<string>) => void
 }
 
-// Timeline data for 2026 with actual dates
-// Tuần chạy từ Thứ 2 → Thứ 6, xuyên qua ranh giới tháng
-interface WeekData {
-    week: number        // Week number within its display group (1, 2, 3...)
-    globalWeek: number  // Global week number (1-22)
-    range: string       // Display range e.g. "02/02 – 06/02" or "30/03 – 03/04"
-    startDate: Date     // Monday
-    endDate: Date       // Friday
-}
-
-interface MonthData {
-    month: string
-    monthIndex: number
-    year: number
-    weeks: WeekData[]
-}
-
-// Generate real Mon-Fri weeks starting from Feb 2, 2026
-// Weeks cross month boundaries naturally
-function generateTimeline2026(): MonthData[] {
-    const startDate = new Date(2026, 1, 2) // Feb 2, 2026 (Monday)
-    const totalWeeks = 22 // Feb through ~early July
-    const allWeeks: { globalWeek: number; mon: Date; fri: Date }[] = []
-
-    for (let i = 0; i < totalWeeks; i++) {
-        const mon = startOfWeek(addWeeks(startDate, i), { weekStartsOn: 1 })
-        const fri = addDays(mon, 4)
-        allWeeks.push({ globalWeek: i + 1, mon, fri })
-    }
-
-    // Group weeks by the month of Monday (start of week)
-    const monthGroups: Record<string, { monthIndex: number; year: number; weeks: typeof allWeeks }> = {}
-
-    allWeeks.forEach(w => {
-        const monthIdx = w.mon.getMonth()
-        const year = w.mon.getFullYear()
-        const key = `${year}-${monthIdx}`
-        if (!monthGroups[key]) {
-            monthGroups[key] = { monthIndex: monthIdx, year, weeks: [] }
-        }
-        monthGroups[key].weeks.push(w)
-    })
-
-    const monthNames = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12']
-
-    return Object.values(monthGroups).map(group => ({
-        month: `${monthNames[group.monthIndex]} / ${group.year}`,
-        monthIndex: group.monthIndex,
-        year: group.year,
-        weeks: group.weeks.map((w, idx) => {
-            const monDay = w.mon.getDate()
-            const monMonth = w.mon.getMonth() + 1
-            const friDay = w.fri.getDate()
-            const friMonth = w.fri.getMonth() + 1
-            const crossMonth = w.mon.getMonth() !== w.fri.getMonth()
-            const range = crossMonth
-                ? `${String(monDay).padStart(2, '0')}/${String(monMonth).padStart(2, '0')} – ${String(friDay).padStart(2, '0')}/${String(friMonth).padStart(2, '0')}`
-                : `${String(monDay).padStart(2, '0')} – ${String(friDay).padStart(2, '0')}`
-            return {
-                week: idx + 1,
-                globalWeek: w.globalWeek,
-                range,
-                startDate: w.mon,
-                endDate: w.fri,
-            }
-        })
-    }))
-}
-
-const TIMELINE_2026: MonthData[] = generateTimeline2026()
-
-type DatePreset = 'week' | '7days' | '14days' | '28days' | '30days' | 'month-1' | 'month-2' | 'month-3' | 'month-4' | 'month-5' | 'custom'
-
-const DATE_PRESETS: { key: DatePreset; label: string }[] = [
-    { key: 'week', label: 'Tuần này' },
-    { key: '7days', label: '7 ngày qua' },
-    { key: '14days', label: '14 ngày qua' },
-    { key: '28days', label: '28 ngày qua' },
-    { key: '30days', label: '30 ngày qua' },
-]
-
-// Month presets for 2026 (Feb-Jun)
-const MONTH_PRESETS: { key: DatePreset; label: string; monthIndex: number; year: number }[] = [
-    { key: 'month-1', label: 'Tháng 2 / 2026', monthIndex: 1, year: 2026 },
-    { key: 'month-2', label: 'Tháng 3 / 2026', monthIndex: 2, year: 2026 },
-    { key: 'month-3', label: 'Tháng 4 / 2026', monthIndex: 3, year: 2026 },
-    { key: 'month-4', label: 'Tháng 5 / 2026', monthIndex: 4, year: 2026 },
-    { key: 'month-5', label: 'Tháng 6 / 2026', monthIndex: 5, year: 2026 },
-]
-
-function getDateRangeFromPreset(preset: DatePreset): { start: Date; end: Date } {
-    const now = new Date()
-    const today = startOfDay(now)
-
-    // Check if it's a month preset
-    const monthPreset = MONTH_PRESETS.find(m => m.key === preset)
-    if (monthPreset) {
-        const monthStart = new Date(monthPreset.year, monthPreset.monthIndex, 1)
-        const monthEnd = new Date(monthPreset.year, monthPreset.monthIndex + 1, 0) // last day of month
-        return { start: monthStart, end: endOfDay(monthEnd) }
-    }
-
-    switch (preset) {
-        case 'week': {
-            // Tuần này: Mon-Fri of current week
-            const weekMon = startOfWeek(today, { weekStartsOn: 1 })
-            const weekFri = addDays(weekMon, 4)
-            return { start: weekMon, end: endOfDay(weekFri) }
-        }
-        case '7days': {
-            // 7 ngày qua: Mon-Fri of PREVIOUS week
-            const thisWeekMon = startOfWeek(today, { weekStartsOn: 1 })
-            const lastWeekMon = subDays(thisWeekMon, 7)
-            const lastWeekFri = addDays(lastWeekMon, 4)
-            return { start: lastWeekMon, end: endOfDay(lastWeekFri) }
-        }
-        case '14days':
-            return { start: subDays(today, 13), end: endOfDay(today) }
-        case '28days':
-            return { start: subDays(today, 27), end: endOfDay(today) }
-        case '30days':
-            return { start: subDays(today, 29), end: endOfDay(today) }
-        default:
-            return { start: subDays(today, 6), end: endOfDay(today) }
-    }
-}
-
-// Calendar component
 function MiniCalendar({
     selectedDate,
     onSelectDate,
     viewMonth,
-    onChangeMonth
+    onChangeMonth,
 }: {
     selectedDate: Date | null
     onSelectDate: (date: Date) => void
@@ -169,57 +82,59 @@ function MiniCalendar({
     onChangeMonth: (date: Date) => void
 }) {
     const monthStart = startOfMonth(viewMonth)
-    const firstDayOfWeek = startOfWeek(monthStart, { weekStartsOn: 1 })
+    const firstDayOfWeek = addDays(monthStart, -((monthStart.getDay() + 6) % 7))
     const days: Date[] = []
 
-    for (let i = 0; i < 42; i++) {
-        days.push(addDays(firstDayOfWeek, i))
+    for (let index = 0; index < 42; index += 1) {
+        days.push(addDays(firstDayOfWeek, index))
     }
 
     const weekDays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
 
     return (
         <div className="w-full">
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3 flex items-center justify-between">
                 <button
                     onClick={() => onChangeMonth(addMonths(viewMonth, -1))}
-                    className="p-1 hover:bg-slate-600 rounded transition-colors"
+                    className="rounded p-1 transition-colors hover:bg-slate-600"
                 >
-                    <ChevronLeft className="w-4 h-4 text-slate-400" />
+                    <ChevronLeft className="h-4 w-4 text-slate-400" />
                 </button>
                 <span className="text-sm font-medium text-white">
                     {format(viewMonth, 'MMMM yyyy', { locale: vi })}
                 </span>
                 <button
                     onClick={() => onChangeMonth(addMonths(viewMonth, 1))}
-                    className="p-1 hover:bg-slate-600 rounded transition-colors"
+                    className="rounded p-1 transition-colors hover:bg-slate-600"
                 >
-                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                    <ChevronRight className="h-4 w-4 text-slate-400" />
                 </button>
             </div>
-            <div className="grid grid-cols-7 gap-1 mb-1">
+
+            <div className="mb-1 grid grid-cols-7 gap-1">
                 {weekDays.map(day => (
-                    <div key={day} className="text-center text-xs text-slate-500 py-1">
+                    <div key={day} className="py-1 text-center text-xs text-slate-500">
                         {day}
                     </div>
                 ))}
             </div>
+
             <div className="grid grid-cols-7 gap-1">
-                {days.map((day, idx) => {
+                {days.map(day => {
                     const isCurrentMonth = getMonth(day) === getMonth(viewMonth)
-                    const isSelected = selectedDate && isSameDay(day, selectedDate)
+                    const isSelected = selectedDate ? isSameDay(day, selectedDate) : false
                     const isToday = isSameDay(day, new Date())
 
                     return (
                         <button
-                            key={idx}
+                            key={day.toISOString()}
                             onClick={() => onSelectDate(day)}
-                            className={`
-                                text-center text-xs py-1.5 rounded transition-colors
-                                ${!isCurrentMonth ? 'text-slate-600' : 'text-slate-300 hover:bg-slate-600'}
-                                ${isSelected ? 'bg-purple-500 text-white' : ''}
-                                ${isToday && !isSelected ? 'border border-purple-500' : ''}
-                            `}
+                            className={[
+                                'rounded py-1.5 text-center text-xs transition-colors',
+                                !isCurrentMonth ? 'text-slate-600' : 'text-slate-300 hover:bg-slate-600',
+                                isSelected ? 'bg-purple-500 text-white' : '',
+                                isToday && !isSelected ? 'border border-purple-500' : '',
+                            ].join(' ')}
                         >
                             {getDate(day)}
                         </button>
@@ -230,9 +145,15 @@ function MiniCalendar({
     )
 }
 
-// Week key for multi-select
-function getWeekKey(monthData: MonthData, weekData: WeekData): string {
-    return `${monthData.monthIndex}-${weekData.globalWeek}`
+function getWeekByKey(weekKey: string): DashboardTimelineWeek | undefined {
+    for (const monthData of DASHBOARD_TIMELINE) {
+        const matchedWeek = monthData.weeks.find(week => week.weekKey === weekKey)
+        if (matchedWeek) {
+            return matchedWeek
+        }
+    }
+
+    return undefined
 }
 
 export default function FilterBar({
@@ -251,7 +172,8 @@ export default function FilterBar({
     lastSync,
     dateRange,
     onDateRangeChange,
-    // Controlled filter props
+    selectedHalf,
+    onHalfChange,
     selectedPreset,
     onPresetChange,
     selectedWeeks,
@@ -260,21 +182,19 @@ export default function FilterBar({
     const { user: userCtx } = useUser()
     const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false)
     const [showTypeDropdown, setShowTypeDropdown] = useState(false)
+    const [showHalfDropdown, setShowHalfDropdown] = useState(false)
     const [showDateDropdown, setShowDateDropdown] = useState(false)
     const [showCustomDatePicker, setShowCustomDatePicker] = useState(false)
     const [assigneeSearch, setAssigneeSearch] = useState('')
-    // Removed local selectedPreset and selectedWeeks - now controlled by parent
-    const [includeToday, setIncludeToday] = useState(true)
-
-    // Custom date picker state
     const [customStartDate, setCustomStartDate] = useState<Date | null>(null)
     const [customEndDate, setCustomEndDate] = useState<Date | null>(null)
     const [startViewMonth, setStartViewMonth] = useState(new Date(2026, 0, 1))
-    const [endViewMonth, setEndViewMonth] = useState(new Date(2026, 1, 1))
-    const [appliedRange, setAppliedRange] = useState<{ start: Date; end: Date } | null>(null)
+    const [endViewMonth, setEndViewMonth] = useState(new Date(2026, 0, 1))
+    const [lastSelectedWeekKey, setLastSelectedWeekKey] = useState<string | null>(null)
 
     const assigneeRef = useRef<HTMLDivElement>(null)
     const typeRef = useRef<HTMLDivElement>(null)
+    const halfRef = useRef<HTMLDivElement>(null)
     const dateRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
@@ -282,101 +202,295 @@ export default function FilterBar({
             if (assigneeRef.current && !assigneeRef.current.contains(event.target as Node)) {
                 setShowAssigneeDropdown(false)
             }
+
             if (typeRef.current && !typeRef.current.contains(event.target as Node)) {
                 setShowTypeDropdown(false)
             }
+
+            if (halfRef.current && !halfRef.current.contains(event.target as Node)) {
+                setShowHalfDropdown(false)
+            }
+
             if (dateRef.current && !dateRef.current.contains(event.target as Node)) {
                 setShowDateDropdown(false)
                 setShowCustomDatePicker(false)
             }
         }
+
         document.addEventListener('mousedown', handleClickOutside)
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
 
-    const filteredAssignees = assignees.filter(a =>
-        a.toLowerCase().includes(assigneeSearch.toLowerCase())
+    const filteredAssignees = assignees.filter(assignee =>
+        assignee.toLowerCase().includes(assigneeSearch.toLowerCase())
     )
+    const halfRange = getDateRangeForHalf(selectedHalf)
+    const visibleTimeline = DASHBOARD_TIMELINE
+        .map(monthData => ({
+            ...monthData,
+            weeks: monthData.weeks.filter(weekData => getDashboardHalfForDate(weekData.startDate) === selectedHalf),
+        }))
+        .filter(monthData => monthData.weeks.length > 0)
+    const visibleTimelineWeeks = visibleTimeline.flatMap(monthData => monthData.weeks)
+    const visibleTimelineWeekKeys = visibleTimelineWeeks.map(weekData => weekData.weekKey)
+    const activeHalfWeek = visibleTimelineWeeks.find(weekData => {
+        const weekEnd = endOfDay(weekData.endDate)
+        return weekStart >= weekData.startDate && weekStart <= weekEnd
+    }) ?? visibleTimelineWeeks[0]
 
     const toggleAssignee = (assignee: string) => {
         if (selectedAssignees.includes(assignee)) {
-            onAssigneesChange(selectedAssignees.filter(a => a !== assignee))
-        } else {
-            onAssigneesChange([...selectedAssignees, assignee])
+            onAssigneesChange(selectedAssignees.filter(item => item !== assignee))
+            return
         }
+
+        onAssigneesChange([...selectedAssignees, assignee])
     }
 
     const toggleVideoType = (type: string) => {
         if (selectedVideoTypes.includes(type)) {
-            onVideoTypesChange(selectedVideoTypes.filter(t => t !== type))
-        } else {
-            onVideoTypesChange([...selectedVideoTypes, type])
-        }
-    }
-
-    // Toggle week selection (multi-select)
-    const toggleWeekSelect = (monthData: MonthData, weekData: WeekData) => {
-        const key = getWeekKey(monthData, weekData)
-        const newSelected = new Set(selectedWeeks)
-
-        if (newSelected.has(key)) {
-            newSelected.delete(key)
-        } else {
-            newSelected.add(key)
-        }
-
-        onWeeksChange(newSelected)
-    }
-
-    // Apply selected weeks
-    const applySelectedWeeks = () => {
-
-        if (selectedWeeks.size === 0) return
-
-        let minStart: Date | null = null
-        let maxEnd: Date | null = null
-
-        selectedWeeks.forEach(key => {
-            const [monthIdx, globalWeekStr] = key.split('-').map(Number)
-            const monthData = TIMELINE_2026.find(m => m.monthIndex === monthIdx)
-            if (monthData) {
-                const weekData = monthData.weeks.find(w => w.globalWeek === globalWeekStr)
-                if (weekData) {
-                    if (!minStart || weekData.startDate < minStart) minStart = weekData.startDate
-                    if (!maxEnd || weekData.endDate > maxEnd) maxEnd = weekData.endDate
-                }
-            }
-        })
-
-
-        if (minStart && maxEnd) {
-            const newRange = { start: minStart, end: endOfDay(maxEnd) }
-
-            onPresetChange('custom')
-            setAppliedRange(newRange)
-            if (onDateRangeChange) {
-                onDateRangeChange(newRange)
-            }
-            onWeekChange(minStart)
-        }
-
-        setShowDateDropdown(false)
-    }
-
-    const handlePresetChange = (preset: DatePreset) => {
-
-        if (preset === 'custom') {
-            setShowCustomDatePicker(true)
-            setShowDateDropdown(false)
+            onVideoTypesChange(selectedVideoTypes.filter(item => item !== type))
             return
         }
 
+        onVideoTypesChange([...selectedVideoTypes, type])
+    }
+
+    const openCustomDatePicker = () => {
+        const baseRange = dateRange ?? getDateRangeFromDashboardPreset(selectedPreset === 'custom' ? 'week' : selectedPreset, selectedHalf)
+        setCustomStartDate(startOfDay(baseRange.start))
+        setCustomEndDate(startOfDay(baseRange.end))
+        setStartViewMonth(startOfMonth(baseRange.start))
+        setEndViewMonth(startOfMonth(baseRange.end))
+        setShowDateDropdown(false)
+        setShowCustomDatePicker(true)
+    }
+
+    const handleHalfChange = (halfKey: TargetHalfKey) => {
+        const range = getDateRangeForHalf(halfKey)
+        const firstWeekStart = getDashboardFirstWeekStartForHalf(halfKey) ?? range.start
+
+        onHalfChange(halfKey)
+        onPresetChange('half')
+        onWeeksChange(new Set())
+        setLastSelectedWeekKey(null)
+
+        if (onDateRangeChange) {
+            onDateRangeChange(range)
+        }
+
+        onWeekChange(firstWeekStart)
+        setShowHalfDropdown(false)
+        setShowDateDropdown(false)
+        setShowCustomDatePicker(false)
+    }
+
+    const selectedHalfIndex = DASHBOARD_HALF_PRESETS.findIndex(option => option.key === selectedHalf)
+
+    const shiftHalf = (direction: -1 | 1) => {
+        const nextHalf = DASHBOARD_HALF_PRESETS[selectedHalfIndex + direction]
+        if (!nextHalf) {
+            return
+        }
+
+        handleHalfChange(nextHalf.key)
+    }
+
+    const applyRange = (range: { start: Date; end: Date }, preset: DashboardScopePreset | 'custom') => {
+        onPresetChange(preset)
+        onWeeksChange(new Set())
+        setLastSelectedWeekKey(null)
+        onHalfChange(getDashboardHalfForDate(range.start))
+
+        if (onDateRangeChange) {
+            onDateRangeChange(range)
+        }
+
+        onWeekChange(range.start)
+    }
+
+    const clampRangeToHalf = (range: { start: Date; end: Date }) => ({
+        start: range.start < halfRange.start ? halfRange.start : range.start,
+        end: range.end > halfRange.end ? halfRange.end : range.end,
+    })
+
+    const getQuickPresetRangeForSelectedHalf = (preset: DashboardQuickPresetKey) => {
+        const fallbackRange = getDateRangeFromDashboardPreset(preset, selectedHalf)
+        if (!activeHalfWeek) {
+            return fallbackRange
+        }
+
+        const referenceEnd = dateRange && selectedPreset !== 'half'
+            ? (dateRange.end > halfRange.end ? halfRange.end : dateRange.end)
+            : endOfDay(activeHalfWeek.endDate)
+
+        switch (preset) {
+            case 'week':
+                return clampRangeToHalf({
+                    start: activeHalfWeek.startDate,
+                    end: endOfDay(activeHalfWeek.endDate),
+                })
+            case '7days': {
+                const activeWeekIndex = visibleTimelineWeekKeys.indexOf(activeHalfWeek.weekKey)
+                const previousWeek = visibleTimelineWeeks[Math.max(0, activeWeekIndex - 1)] ?? activeHalfWeek
+
+                return clampRangeToHalf({
+                    start: previousWeek.startDate,
+                    end: endOfDay(previousWeek.endDate),
+                })
+            }
+            case '14days':
+                return clampRangeToHalf({ start: startOfDay(subDays(referenceEnd, 13)), end: referenceEnd })
+            case '28days':
+                return clampRangeToHalf({ start: startOfDay(subDays(referenceEnd, 27)), end: referenceEnd })
+            case '30days':
+            default:
+                return clampRangeToHalf({ start: startOfDay(subDays(referenceEnd, 29)), end: referenceEnd })
+        }
+    }
+
+    const shiftActiveRange = (direction: -1 | 1) => {
+        if (selectedPreset === 'half') {
+            const nextWeekStart = addDays(weekStart, direction * 7)
+            if (getDashboardHalfForDate(nextWeekStart) !== selectedHalf) {
+                return
+            }
+
+            const range = {
+                start: nextWeekStart,
+                end: endOfDay(addDays(nextWeekStart, 4)),
+            }
+
+            onPresetChange('custom')
+            onWeeksChange(new Set())
+            setLastSelectedWeekKey(null)
+
+            if (onDateRangeChange) {
+                onDateRangeChange(range)
+            }
+
+            onWeekChange(nextWeekStart)
+            return
+        }
+
+        if (selectedPreset.startsWith('all-')) {
+            const year = Number(selectedPreset.slice(4))
+            const nextYear = year + direction
+            const nextPreset = DASHBOARD_YEAR_PRESETS.find(option => option.key === `all-${nextYear}`)
+
+            if (nextPreset) {
+                handlePresetChange(nextPreset.key)
+            }
+
+            return
+        }
+
+        if (selectedPreset.startsWith('month-')) {
+            const [, yearRaw, monthRaw] = selectedPreset.split('-')
+            const nextMonth = addMonths(new Date(Number(yearRaw), Number(monthRaw) - 1, 1), direction)
+            const nextPreset = DASHBOARD_MONTH_PRESETS.find(option =>
+                option.key === `month-${nextMonth.getFullYear()}-${nextMonth.getMonth() + 1}`
+            )
+
+            if (nextPreset) {
+                handlePresetChange(nextPreset.key)
+            }
+
+            return
+        }
+
+        const baseRange = dateRange ?? getDateRangeFromDashboardPreset(selectedPreset === 'custom' ? 'week' : selectedPreset, selectedHalf)
+        const spanDays = selectedPreset === 'week' || selectedPreset === '7days'
+            ? 7
+            : selectedPreset === '14days'
+                ? 14
+                : selectedPreset === '28days'
+                    ? 28
+                    : selectedPreset === '30days'
+                        ? 30
+                        : Math.max(1, differenceInCalendarDays(baseRange.end, baseRange.start) + 1)
+
+        applyRange(
+            {
+                start: addDays(baseRange.start, spanDays * direction),
+                end: endOfDay(addDays(baseRange.end, spanDays * direction)),
+            },
+            'custom'
+        )
+    }
+
+    const toggleWeekSelect = (weekData: DashboardTimelineWeek, event: React.MouseEvent<HTMLButtonElement>) => {
+        const nextSelected = new Set(selectedWeeks)
+
+        if (event.shiftKey && lastSelectedWeekKey) {
+            const currentIndex = visibleTimelineWeekKeys.indexOf(weekData.weekKey)
+            const lastIndex = visibleTimelineWeekKeys.indexOf(lastSelectedWeekKey)
+
+            if (currentIndex !== -1 && lastIndex !== -1) {
+                const [startIndex, endIndex] = currentIndex > lastIndex
+                    ? [lastIndex, currentIndex]
+                    : [currentIndex, lastIndex]
+
+                for (let index = startIndex; index <= endIndex; index += 1) {
+                    nextSelected.add(visibleTimelineWeekKeys[index])
+                }
+            }
+        } else if (nextSelected.has(weekData.weekKey)) {
+            nextSelected.delete(weekData.weekKey)
+        } else {
+            nextSelected.add(weekData.weekKey)
+        }
+
+        onWeeksChange(nextSelected)
+        setLastSelectedWeekKey(weekData.weekKey)
+    }
+
+    const applySelectedWeeks = () => {
+        if (selectedWeeks.size === 0) {
+            return
+        }
+
+        const matchedWeeks = DASHBOARD_TIMELINE_WEEK_KEYS
+            .filter(weekKey => selectedWeeks.has(weekKey))
+            .map(getWeekByKey)
+            .filter((week): week is DashboardTimelineWeek => Boolean(week))
+
+        if (matchedWeeks.length === 0) {
+            return
+        }
+
+        const minStart = matchedWeeks[0].startDate
+        const maxEnd = matchedWeeks[matchedWeeks.length - 1].endDate
+        const range = { start: minStart, end: endOfDay(maxEnd) }
+
+        onHalfChange(getDashboardHalfForDate(minStart))
+        onPresetChange('custom')
+
+        if (onDateRangeChange) {
+            onDateRangeChange(range)
+        }
+
+        onWeekChange(minStart)
+        setShowDateDropdown(false)
+    }
+
+    const handlePresetChange = (preset: DashboardScopePreset | 'custom') => {
+        if (preset === 'custom') {
+            openCustomDatePicker()
+            return
+        }
+
+        const range = DASHBOARD_QUICK_PRESETS.some(option => option.key === preset)
+            ? getQuickPresetRangeForSelectedHalf(preset as DashboardQuickPresetKey)
+            : getDateRangeFromDashboardPreset(preset, selectedHalf)
 
         onPresetChange(preset)
         onWeeksChange(new Set())
-        setAppliedRange(null)
-        const range = getDateRangeFromPreset(preset)
+        setLastSelectedWeekKey(null)
 
+        if (preset !== 'half' && !preset.startsWith('all-')) {
+            onHalfChange(getDashboardHalfForDate(range.start))
+        }
 
         if (onDateRangeChange) {
             onDateRangeChange(range)
@@ -384,101 +498,164 @@ export default function FilterBar({
 
         onWeekChange(range.start)
         setShowDateDropdown(false)
+        setShowCustomDatePicker(false)
     }
 
     const handleApplyCustomRange = () => {
-        if (customStartDate && customEndDate) {
-            onPresetChange('custom')
-            onWeeksChange(new Set())
-            if (onDateRangeChange) {
-                onDateRangeChange({ start: customStartDate, end: endOfDay(customEndDate) })
-            }
-            onWeekChange(customStartDate)
-            setShowCustomDatePicker(false)
+        if (!customStartDate || !customEndDate) {
+            return
         }
+
+        const start = customStartDate <= customEndDate ? customStartDate : customEndDate
+        const end = customStartDate <= customEndDate ? customEndDate : customStartDate
+
+        applyRange({ start: startOfDay(start), end: endOfDay(end) }, 'custom')
+        setShowCustomDatePicker(false)
     }
 
     const getDateRangeLabel = () => {
-        // For custom or week-selection, show date range
-        if ((selectedPreset === 'custom' || selectedWeeks.size > 0) && dateRange) {
-            return `${format(dateRange.start, 'dd/MM')} - ${format(dateRange.end, 'dd/MM/yyyy')}`
+        if (selectedPreset === 'half') {
+            const weekEnd = addDays(weekStart, 4)
+            return `${format(weekStart, 'dd/MM')} - ${format(weekEnd, 'dd/MM/yyyy')}`
         }
-        // For named presets (week, 7days, 14days, etc.), show their label
-        const preset = [...DATE_PRESETS, ...MONTH_PRESETS].find(p => p.key === selectedPreset)
-        return preset?.label || 'Tuần này'
+
+        return getDashboardDateLabel(selectedPreset, dateRange, selectedWeeks.size, selectedHalf)
     }
 
     return (
-        <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-4 mb-6 relative z-[100] sticky top-4">
+        <div className="relative z-[100] mb-6 rounded-2xl border border-slate-700/50 bg-slate-800/50 p-4 backdrop-blur-xl">
             <div className="flex flex-wrap items-center gap-4">
-                {/* Date Range Picker with Timeline */}
-                <div className="relative" ref={dateRef}>
-                    <div className="flex items-center gap-2 bg-slate-700/50 rounded-xl p-1">
+                <div className="relative" ref={halfRef}>
+                    <div className="flex items-center gap-2 rounded-xl bg-slate-700/50 p-1">
                         <button
-                            onClick={() => onWeekChange(subWeeks(weekStart, 1))}
-                            className="p-2 hover:bg-slate-600 rounded-lg transition-colors"
+                            onClick={() => shiftHalf(-1)}
+                            disabled={selectedHalfIndex <= 0}
+                            className="rounded-lg p-2 transition-colors hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                            <ChevronLeft className="w-5 h-5 text-slate-300" />
+                            <ChevronLeft className="h-5 w-5 text-slate-300" />
                         </button>
                         <button
-                            onClick={() => setShowDateDropdown(!showDateDropdown)}
-                            className="flex items-center gap-2 px-3 py-1 hover:bg-slate-600/50 rounded-lg transition-colors"
+                            onClick={() => {
+                                setShowDateDropdown(false)
+                                setShowCustomDatePicker(false)
+                                setShowHalfDropdown(current => !current)
+                            }}
+                            className="flex items-center gap-2 rounded-lg px-3 py-1 transition-colors hover:bg-slate-600/50"
                         >
-                            <Calendar className="w-4 h-4 text-purple-400" />
-                            <span className="text-sm font-medium text-white whitespace-nowrap">
-                                {getDateRangeLabel()}
+                            <Calendar className="h-4 w-4 text-purple-400" />
+                            <span className="whitespace-nowrap text-sm font-medium text-white">
+                                {getDashboardHalfLabel(selectedHalf)}
                             </span>
-                            <ChevronDown className="w-4 h-4 text-slate-400" />
+                            <ChevronDown className="h-4 w-4 text-slate-400" />
                         </button>
                         <button
-                            onClick={() => onWeekChange(addWeeks(weekStart, 1))}
-                            className="p-2 hover:bg-slate-600 rounded-lg transition-colors"
+                            onClick={() => shiftHalf(1)}
+                            disabled={selectedHalfIndex >= DASHBOARD_HALF_PRESETS.length - 1}
+                            className="rounded-lg p-2 transition-colors hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                            <ChevronRight className="w-5 h-5 text-slate-300" />
+                            <ChevronRight className="h-5 w-5 text-slate-300" />
                         </button>
                     </div>
 
-                    {/* Date preset dropdown */}
-                    {showDateDropdown && (
-                        <div className="absolute top-full mt-2 left-0 w-[520px] bg-slate-800/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-2xl z-[200] overflow-hidden animate-slide-down">
-                            <div className="flex">
-                                {/* Left: Timeline with multi-select */}
-                                <div className="w-52 border-r border-slate-700 max-h-96 overflow-y-auto">
-                                    <div className="p-2 border-b border-slate-700 sticky top-0 bg-slate-800/95 flex items-center justify-between">
-                                        <p className="text-xs text-slate-400 font-medium px-2">Timeline (chọn nhiều)</p>
-                                        {selectedWeeks.size > 0 && (
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    e.preventDefault()
-                                                    applySelectedWeeks()
-                                                }}
-                                                className="px-2 py-1 bg-purple-500 hover:bg-purple-600 text-white text-xs rounded transition-colors"
-                                            >
-                                                Áp dụng
-                                            </button>
+                    {showHalfDropdown && (
+                        <div className="animate-slide-down absolute left-0 top-full z-[220] mt-2 w-48 overflow-hidden rounded-xl border border-slate-700 bg-slate-800/95 shadow-2xl backdrop-blur-xl">
+                            <div className="p-2">
+                                {DASHBOARD_HALF_PRESETS.map(option => (
+                                    <button
+                                        key={option.key}
+                                        onClick={() => handleHalfChange(option.key)}
+                                        className={[
+                                            'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors',
+                                            selectedHalf === option.key
+                                                ? 'bg-purple-500/20 text-purple-300'
+                                                : 'text-slate-300 hover:bg-slate-700',
+                                        ].join(' ')}
+                                    >
+                                        <span>{option.label}</span>
+                                        {selectedHalf === option.key && (
+                                            <Check className="h-4 w-4" />
                                         )}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="relative" ref={dateRef}>
+                    <div className="flex items-center gap-2 rounded-xl bg-slate-700/50 p-1">
+                        <button
+                            onClick={() => shiftActiveRange(-1)}
+                            className="rounded-lg p-2 transition-colors hover:bg-slate-600"
+                        >
+                            <ChevronLeft className="h-5 w-5 text-slate-300" />
+                        </button>
+                        <button
+                            onClick={() => {
+                                setShowHalfDropdown(false)
+                                setShowCustomDatePicker(false)
+                                setShowDateDropdown(current => !current)
+                            }}
+                            className="flex items-center gap-2 rounded-lg px-3 py-1 transition-colors hover:bg-slate-600/50"
+                        >
+                            <Calendar className="h-4 w-4 text-purple-400" />
+                            <span className="whitespace-nowrap text-sm font-medium text-white">
+                                {getDateRangeLabel()}
+                            </span>
+                            <ChevronDown className="h-4 w-4 text-slate-400" />
+                        </button>
+                        <button
+                            onClick={() => shiftActiveRange(1)}
+                            className="rounded-lg p-2 transition-colors hover:bg-slate-600"
+                        >
+                            <ChevronRight className="h-5 w-5 text-slate-300" />
+                        </button>
+                    </div>
+
+                    {showDateDropdown && (
+                        <div className="animate-slide-down absolute left-0 top-full z-[210] mt-2 w-[620px] overflow-hidden rounded-xl border border-slate-700 bg-slate-800/95 shadow-2xl backdrop-blur-xl">
+                            <div className="flex">
+                                <div className="w-72 border-r border-slate-700">
+                                    <div className="sticky top-0 border-b border-slate-700 bg-slate-800/95 p-3">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div>
+                                                <p className="text-xs font-medium text-slate-300">Timeline (chọn nhiều)</p>
+                                                <p className="mt-1 text-[11px] text-slate-500">
+                                                    Giữ Shift để chọn nhanh từ tuần đầu đến tuần cuối.
+                                                </p>
+                                            </div>
+                                            {selectedWeeks.size > 0 && (
+                                                <button
+                                                    onClick={applySelectedWeeks}
+                                                    className="rounded bg-purple-500 px-2 py-1 text-xs text-white transition-colors hover:bg-purple-600"
+                                                >
+                                                    Áp dụng
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="p-2">
-                                        {TIMELINE_2026.map(monthData => (
+                                    <div className="max-h-96 overflow-y-auto p-2">
+                                        {visibleTimeline.map(monthData => (
                                             <div key={monthData.month} className="mb-3">
-                                                <p className="text-xs font-semibold text-purple-400 px-2 py-1">{monthData.month}</p>
+                                                <p className="px-2 py-1 text-xs font-semibold text-purple-400">
+                                                    {monthData.month}
+                                                </p>
                                                 {monthData.weeks.map(weekData => {
-                                                    const key = getWeekKey(monthData, weekData)
-                                                    const isSelected = selectedWeeks.has(key)
+                                                    const isSelected = selectedWeeks.has(weekData.weekKey)
 
                                                     return (
                                                         <button
-                                                            key={key}
-                                                            onClick={() => toggleWeekSelect(monthData, weekData)}
-                                                            className={`w-full text-left px-3 py-1.5 rounded text-xs transition-colors flex items-center justify-between ${isSelected
-                                                                ? 'bg-purple-500/20 text-purple-300'
-                                                                : 'text-slate-300 hover:bg-slate-700'
-                                                                }`}
+                                                            key={weekData.weekKey}
+                                                            onClick={event => toggleWeekSelect(weekData, event)}
+                                                            className={[
+                                                                'flex w-full items-center justify-between rounded px-3 py-1.5 text-left text-xs transition-colors',
+                                                                isSelected
+                                                                    ? 'bg-purple-500/20 text-purple-300'
+                                                                    : 'text-slate-300 hover:bg-slate-700',
+                                                            ].join(' ')}
                                                         >
-                                                            <span>Tuần {weekData.week}: {weekData.range}</span>
-                                                            {isSelected && <Check className="w-3 h-3" />}
+                                                            <span>{`Tuần ${weekData.week}: ${weekData.range}`}</span>
+                                                            {isSelected && <Check className="h-3 w-3" />}
                                                         </button>
                                                     )
                                                 })}
@@ -487,48 +664,77 @@ export default function FilterBar({
                                     </div>
                                 </div>
 
-                                {/* Right: Presets */}
                                 <div className="flex-1">
-                                    <div className="p-2 border-b border-slate-700">
-                                        <p className="text-xs text-slate-400 font-medium px-2">Chọn nhanh</p>
+                                    <div className="border-b border-slate-700 p-3">
+                                        <p className="text-xs font-medium text-slate-300">Chọn nhanh</p>
                                     </div>
-                                    <div className="p-2">
-                                        {DATE_PRESETS.map(preset => (
+                                    <div className="max-h-96 overflow-y-auto p-2">
+                                        {DASHBOARD_QUICK_PRESETS.map(option => (
                                             <button
-                                                key={preset.key}
-                                                onClick={() => handlePresetChange(preset.key)}
-                                                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between ${selectedPreset === preset.key && selectedWeeks.size === 0
-                                                    ? 'bg-purple-500/20 text-purple-300'
-                                                    : 'text-slate-300 hover:bg-slate-700'
-                                                    }`}
+                                                key={option.key}
+                                                onClick={() => handlePresetChange(option.key)}
+                                                className={[
+                                                    'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors',
+                                                    (selectedPreset === option.key || (selectedPreset === 'half' && option.key === 'week')) && selectedWeeks.size === 0
+                                                        ? 'bg-purple-500/20 text-purple-300'
+                                                        : 'text-slate-300 hover:bg-slate-700',
+                                                ].join(' ')}
                                             >
-                                                <span>{preset.label}</span>
-                                                {selectedPreset === preset.key && selectedWeeks.size === 0 && (
-                                                    <Check className="w-4 h-4" />
+                                                <span>{option.label}</span>
+                                                {(selectedPreset === option.key || (selectedPreset === 'half' && option.key === 'week')) && selectedWeeks.size === 0 && (
+                                                    <Check className="h-4 w-4" />
                                                 )}
                                             </button>
                                         ))}
+
                                         <hr className="my-2 border-slate-700" />
-                                        <p className="text-[10px] text-slate-500 uppercase tracking-wider font-medium px-3 py-1">Theo tháng</p>
-                                        {MONTH_PRESETS.map(preset => (
+                                        <p className="px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                                            Theo năm
+                                        </p>
+                                        {DASHBOARD_YEAR_PRESETS.map(option => (
                                             <button
-                                                key={preset.key}
-                                                onClick={() => handlePresetChange(preset.key)}
-                                                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between ${selectedPreset === preset.key && selectedWeeks.size === 0
-                                                    ? 'bg-purple-500/20 text-purple-300'
-                                                    : 'text-slate-300 hover:bg-slate-700'
-                                                    }`}
+                                                key={option.key}
+                                                onClick={() => handlePresetChange(option.key)}
+                                                className={[
+                                                    'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors',
+                                                    selectedPreset === option.key && selectedWeeks.size === 0
+                                                        ? 'bg-purple-500/20 text-purple-300'
+                                                        : 'text-slate-300 hover:bg-slate-700',
+                                                ].join(' ')}
                                             >
-                                                <span>{preset.label}</span>
-                                                {selectedPreset === preset.key && selectedWeeks.size === 0 && (
-                                                    <Check className="w-4 h-4" />
+                                                <span>{option.label}</span>
+                                                {selectedPreset === option.key && selectedWeeks.size === 0 && (
+                                                    <Check className="h-4 w-4" />
                                                 )}
                                             </button>
                                         ))}
+
+                                        <hr className="my-2 border-slate-700" />
+                                        <p className="px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                                            Theo tháng
+                                        </p>
+                                        {DASHBOARD_MONTH_PRESETS.map(option => (
+                                            <button
+                                                key={option.key}
+                                                onClick={() => handlePresetChange(option.key)}
+                                                className={[
+                                                    'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors',
+                                                    selectedPreset === option.key && selectedWeeks.size === 0
+                                                        ? 'bg-purple-500/20 text-purple-300'
+                                                        : 'text-slate-300 hover:bg-slate-700',
+                                                ].join(' ')}
+                                            >
+                                                <span>{option.label}</span>
+                                                {selectedPreset === option.key && selectedWeeks.size === 0 && (
+                                                    <Check className="h-4 w-4" />
+                                                )}
+                                            </button>
+                                        ))}
+
                                         <hr className="my-2 border-slate-700" />
                                         <button
-                                            onClick={() => handlePresetChange('custom')}
-                                            className="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-slate-700 transition-colors"
+                                            onClick={openCustomDatePicker}
+                                            className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-300 transition-colors hover:bg-slate-700"
                                         >
                                             Tùy chỉnh...
                                         </button>
@@ -538,40 +744,31 @@ export default function FilterBar({
                         </div>
                     )}
 
-                    {/* Custom date picker modal */}
                     {showCustomDatePicker && (
-                        <div className="absolute top-full mt-2 left-0 w-[480px] bg-slate-800/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-2xl z-[200] p-4 animate-slide-down">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-3">
-                                    <label className="flex items-center gap-2 text-sm text-slate-300">
-                                        <input
-                                            type="checkbox"
-                                            checked={includeToday}
-                                            onChange={e => setIncludeToday(e.target.checked)}
-                                            className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-purple-500 focus:ring-purple-500"
-                                        />
-                                        Tính cả hôm nay
-                                    </label>
-                                </div>
+                        <div className="animate-slide-down absolute left-0 top-full z-[220] mt-2 w-[520px] rounded-xl border border-slate-700 bg-slate-800/95 p-4 shadow-2xl backdrop-blur-xl">
+                            <div className="mb-4 flex items-center justify-between">
+                                <p className="text-sm font-medium text-white">Chọn khoảng thời gian</p>
                                 <select
-                                    value={selectedPreset === 'custom' ? '' : selectedPreset}
-                                    onChange={e => {
-                                        if (e.target.value) {
-                                            handlePresetChange(e.target.value as DatePreset)
+                                    value={selectedPreset === 'custom' || selectedPreset === 'half' ? '' : selectedPreset}
+                                    onChange={event => {
+                                        if (event.target.value) {
+                                            handlePresetChange(event.target.value as DashboardScopePreset)
                                         }
                                     }}
-                                    className="px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    className="rounded-lg border border-slate-600 bg-slate-700 px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                                 >
                                     <option value="">Tùy chỉnh</option>
-                                    {DATE_PRESETS.map(p => (
-                                        <option key={p.key} value={p.key}>{p.label}</option>
+                                    {[...DASHBOARD_QUICK_PRESETS, ...DASHBOARD_YEAR_PRESETS, ...DASHBOARD_MONTH_PRESETS].map(option => (
+                                        <option key={option.key} value={option.key}>
+                                            {option.label}
+                                        </option>
                                     ))}
                                 </select>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <p className="text-xs text-slate-400 mb-2">Ngày bắt đầu</p>
+                                    <p className="mb-2 text-xs text-slate-400">Ngày bắt đầu</p>
                                     <MiniCalendar
                                         selectedDate={customStartDate}
                                         onSelectDate={setCustomStartDate}
@@ -580,7 +777,7 @@ export default function FilterBar({
                                     />
                                 </div>
                                 <div>
-                                    <p className="text-xs text-slate-400 mb-2">Ngày kết thúc</p>
+                                    <p className="mb-2 text-xs text-slate-400">Ngày kết thúc</p>
                                     <MiniCalendar
                                         selectedDate={customEndDate}
                                         onSelectDate={setCustomEndDate}
@@ -590,17 +787,17 @@ export default function FilterBar({
                                 </div>
                             </div>
 
-                            <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-700">
+                            <div className="mt-4 flex justify-end gap-2 border-t border-slate-700 pt-4">
                                 <button
                                     onClick={() => setShowCustomDatePicker(false)}
-                                    className="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors"
+                                    className="px-4 py-2 text-sm text-slate-400 transition-colors hover:text-white"
                                 >
                                     Hủy
                                 </button>
                                 <button
                                     onClick={handleApplyCustomRange}
                                     disabled={!customStartDate || !customEndDate}
-                                    className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="rounded-lg bg-purple-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-600 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     Áp dụng
                                 </button>
@@ -609,29 +806,30 @@ export default function FilterBar({
                     )}
                 </div>
 
-                {/* Assignee Filter */}
                 <div className="relative" ref={assigneeRef}>
                     <button
-                        onClick={() => setShowAssigneeDropdown(!showAssigneeDropdown)}
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-700/50 hover:bg-slate-600/50 rounded-xl transition-colors"
+                        onClick={() => setShowAssigneeDropdown(current => !current)}
+                        className="flex items-center gap-2 rounded-xl bg-slate-700/50 px-4 py-2 transition-colors hover:bg-slate-600/50"
                     >
-                        <Users className="w-4 h-4 text-purple-400" />
+                        <Users className="h-4 w-4 text-purple-400" />
                         <span className="text-sm text-white">
                             {selectedAssignees.length === 0
-                                ? (userCtx?.role === 'member' ? (userCtx.asanaName || userCtx.fullName || 'All Members') : 'All Members')
+                                ? (userCtx?.role === 'member'
+                                    ? (userCtx.asanaName || userCtx.fullName || 'All Members')
+                                    : 'All Members')
                                 : `${selectedAssignees.length} selected`}
                         </span>
                     </button>
 
                     {showAssigneeDropdown && (
-                        <div className="absolute top-full mt-2 left-0 w-64 bg-slate-800/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-2xl z-[200] max-h-80 overflow-hidden animate-slide-down">
-                            <div className="p-2 border-b border-slate-700">
+                        <div className="animate-slide-down absolute left-0 top-full z-[200] mt-2 max-h-80 w-64 overflow-hidden rounded-xl border border-slate-700 bg-slate-800/95 shadow-2xl backdrop-blur-xl">
+                            <div className="border-b border-slate-700 p-2">
                                 <input
                                     type="text"
                                     placeholder="Search..."
                                     value={assigneeSearch}
-                                    onChange={e => setAssigneeSearch(e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-700 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    onChange={event => setAssigneeSearch(event.target.value)}
+                                    className="w-full rounded-lg bg-slate-700 px-3 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
                                 />
                             </div>
                             <div className="max-h-60 overflow-y-auto p-2">
@@ -640,15 +838,27 @@ export default function FilterBar({
                                         onAssigneesChange([])
                                         setShowAssigneeDropdown(false)
                                     }}
-                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${selectedAssignees.length === 0 ? 'bg-purple-500/20 text-purple-300' : 'text-slate-300 hover:bg-slate-700'}`}
+                                    className={[
+                                        'w-full rounded-lg px-3 py-2 text-left text-sm transition-colors',
+                                        selectedAssignees.length === 0
+                                            ? 'bg-purple-500/20 text-purple-300'
+                                            : 'text-slate-300 hover:bg-slate-700',
+                                    ].join(' ')}
                                 >
-                                    {userCtx?.role === 'member' ? (userCtx.asanaName || userCtx.fullName || 'All Members') : 'All Members'}
+                                    {userCtx?.role === 'member'
+                                        ? (userCtx.asanaName || userCtx.fullName || 'All Members')
+                                        : 'All Members'}
                                 </button>
                                 {filteredAssignees.map(assignee => (
                                     <button
                                         key={assignee}
                                         onClick={() => toggleAssignee(assignee)}
-                                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${selectedAssignees.includes(assignee) ? 'bg-purple-500/20 text-purple-300' : 'text-slate-300 hover:bg-slate-700'}`}
+                                        className={[
+                                            'w-full rounded-lg px-3 py-2 text-left text-sm transition-colors',
+                                            selectedAssignees.includes(assignee)
+                                                ? 'bg-purple-500/20 text-purple-300'
+                                                : 'text-slate-300 hover:bg-slate-700',
+                                        ].join(' ')}
                                     >
                                         {assignee}
                                     </button>
@@ -658,42 +868,45 @@ export default function FilterBar({
                     )}
                 </div>
 
-                {/* Status Filter */}
-                <div className="flex items-center bg-slate-700/50 rounded-xl p-1">
-                    {(['all', 'done', 'not_done'] as const).map(s => (
+                <div className="flex items-center rounded-xl bg-slate-700/50 p-1">
+                    {(['all', 'done', 'not_done'] as const).map(item => (
                         <button
-                            key={s}
-                            onClick={() => onStatusChange(s)}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${status === s
-                                ? 'bg-purple-500 text-white'
-                                : 'text-slate-400 hover:text-white'
-                                }`}
+                            key={item}
+                            onClick={() => onStatusChange(item)}
+                            className={[
+                                'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                                status === item ? 'bg-purple-500 text-white' : 'text-slate-400 hover:text-white',
+                            ].join(' ')}
                         >
-                            {s === 'all' ? 'All' : s === 'done' ? 'Done' : 'Chưa Done'}
+                            {item === 'all' ? 'All' : item === 'done' ? 'Done' : 'Chưa Done'}
                         </button>
                     ))}
                 </div>
 
-                {/* Video Type Filter */}
                 <div className="relative" ref={typeRef}>
                     <button
-                        onClick={() => setShowTypeDropdown(!showTypeDropdown)}
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-700/50 hover:bg-slate-600/50 rounded-xl transition-colors"
+                        onClick={() => setShowTypeDropdown(current => !current)}
+                        className="flex items-center gap-2 rounded-xl bg-slate-700/50 px-4 py-2 transition-colors hover:bg-slate-600/50"
                     >
-                        <Filter className="w-4 h-4 text-purple-400" />
+                        <Filter className="h-4 w-4 text-purple-400" />
                         <span className="text-sm text-white">
                             {selectedVideoTypes.length === 0 ? 'All Types' : `${selectedVideoTypes.length} types`}
                         </span>
                     </button>
 
                     {showTypeDropdown && (
-                        <div className="absolute top-full mt-2 left-0 w-64 max-h-96 overflow-y-auto bg-slate-800/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-2xl z-[200] p-2 animate-slide-down">
+                        <div className="animate-slide-down absolute left-0 top-full z-[200] mt-2 max-h-96 w-64 overflow-y-auto rounded-xl border border-slate-700 bg-slate-800/95 p-2 shadow-2xl backdrop-blur-xl">
                             <button
                                 onClick={() => {
                                     onVideoTypesChange([])
                                     setShowTypeDropdown(false)
                                 }}
-                                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${selectedVideoTypes.length === 0 ? 'bg-purple-500/20 text-purple-300' : 'text-slate-300 hover:bg-slate-700'}`}
+                                className={[
+                                    'w-full rounded-lg px-3 py-2 text-left text-sm transition-colors',
+                                    selectedVideoTypes.length === 0
+                                        ? 'bg-purple-500/20 text-purple-300'
+                                        : 'text-slate-300 hover:bg-slate-700',
+                                ].join(' ')}
                             >
                                 All Types
                             </button>
@@ -701,7 +914,12 @@ export default function FilterBar({
                                 <button
                                     key={type}
                                     onClick={() => toggleVideoType(type)}
-                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors break-words ${selectedVideoTypes.includes(type) ? 'bg-purple-500/20 text-purple-300' : 'text-slate-300 hover:bg-slate-700'}`}
+                                    className={[
+                                        'w-full break-words rounded-lg px-3 py-2 text-left text-sm transition-colors',
+                                        selectedVideoTypes.includes(type)
+                                            ? 'bg-purple-500/20 text-purple-300'
+                                            : 'text-slate-300 hover:bg-slate-700',
+                                    ].join(' ')}
                                 >
                                     {type}
                                 </button>
@@ -710,7 +928,6 @@ export default function FilterBar({
                     )}
                 </div>
 
-                {/* Sync Button */}
                 <div className="ml-auto flex items-center gap-3">
                     {lastSync && (
                         <span className="text-xs text-slate-500">
@@ -720,40 +937,47 @@ export default function FilterBar({
                     <button
                         onClick={onSync}
                         disabled={syncing}
-                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 rounded-xl text-sm font-medium text-white transition-all duration-200 disabled:opacity-50 shadow-lg shadow-purple-900/30 hover:shadow-purple-700/40"
+                        className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-purple-900/30 transition-all duration-200 hover:from-violet-500 hover:to-purple-500 hover:shadow-purple-700/40 disabled:opacity-50"
                     >
-                        <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
                         {syncing ? 'Syncing...' : 'Sync Now'}
                     </button>
                 </div>
             </div>
 
-            {/* Active Filters */}
             {(selectedAssignees.length > 0 || selectedVideoTypes.length > 0 || status !== 'all') && (
-                <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium mr-1">Filters:</span>
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-700/50 pt-3">
+                    <span className="mr-1 text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                        Filters:
+                    </span>
                     {status !== 'all' && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-violet-500/20 rounded-lg text-xs text-violet-300 border border-violet-500/20">
-                            {status === 'done' ? '✅ Done' : '⏳ Chưa Done'}
-                            <button onClick={() => onStatusChange('all')} className="hover:text-white ml-0.5">×</button>
+                        <span className="inline-flex items-center gap-1 rounded-lg border border-violet-500/20 bg-violet-500/20 px-2.5 py-1 text-xs text-violet-300">
+                            {status === 'done' ? 'Done' : 'Chưa Done'}
+                            <button onClick={() => onStatusChange('all')} className="ml-0.5 hover:text-white">
+                                ×
+                            </button>
                         </span>
                     )}
-                    {selectedAssignees.map(a => (
+                    {selectedAssignees.map(assignee => (
                         <span
-                            key={a}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-500/20 rounded-lg text-xs text-purple-300 border border-purple-500/20"
+                            key={assignee}
+                            className="inline-flex items-center gap-1 rounded-lg border border-purple-500/20 bg-purple-500/20 px-2.5 py-1 text-xs text-purple-300"
                         >
-                            {a}
-                            <button onClick={() => toggleAssignee(a)} className="hover:text-white ml-0.5">×</button>
+                            {assignee}
+                            <button onClick={() => toggleAssignee(assignee)} className="ml-0.5 hover:text-white">
+                                ×
+                            </button>
                         </span>
                     ))}
-                    {selectedVideoTypes.map(t => (
+                    {selectedVideoTypes.map(type => (
                         <span
-                            key={t}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-cyan-500/20 rounded-lg text-xs text-cyan-300 border border-cyan-500/20"
+                            key={type}
+                            className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/20 bg-cyan-500/20 px-2.5 py-1 text-xs text-cyan-300"
                         >
-                            {t}
-                            <button onClick={() => toggleVideoType(t)} className="hover:text-white ml-0.5">×</button>
+                            {type}
+                            <button onClick={() => toggleVideoType(type)} className="ml-0.5 hover:text-white">
+                                ×
+                            </button>
                         </span>
                     ))}
                     <button
@@ -762,9 +986,9 @@ export default function FilterBar({
                             onVideoTypesChange([])
                             onStatusChange('all')
                         }}
-                        className="text-xs text-slate-500 hover:text-red-400 transition-colors ml-2 px-2 py-1 hover:bg-slate-700/50 rounded-lg"
+                        className="ml-2 rounded-lg px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-slate-700/50 hover:text-red-400"
                     >
-                        ✕ Clear all
+                        × Clear all
                     </button>
                 </div>
             )}

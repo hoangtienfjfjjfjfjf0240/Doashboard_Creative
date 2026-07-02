@@ -16,6 +16,7 @@ export function getVideoTypeColor(videoType: string): string {
     const colors: Record<string, string> = {
         S1: '#94a3b8',
         S2A: '#60a5fa',
+        S2C: '#0ea5e9',
         S2B: '#38bdf8',
         S3A: '#34d399',
         S3B: '#4ade80',

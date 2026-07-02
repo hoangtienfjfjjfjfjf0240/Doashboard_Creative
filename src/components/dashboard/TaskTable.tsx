@@ -125,12 +125,20 @@ export default function TaskTable({ doneTasks, notDoneTasks, showOverdueOnly = f
         const colors: Record<string, string> = {
             S1: 'bg-slate-500/20 text-slate-300',
             S2A: 'bg-blue-500/20 text-blue-300',
+            S2C: 'bg-cyan-500/20 text-cyan-300',
             S2B: 'bg-cyan-500/20 text-cyan-300',
             S3A: 'bg-emerald-500/20 text-emerald-300',
             S3B: 'bg-green-500/20 text-green-300',
             S4: 'bg-yellow-500/20 text-yellow-300',
             S5: 'bg-orange-500/20 text-orange-300',
             S6: 'bg-red-500/20 text-red-300',
+            S7: 'bg-pink-500/20 text-pink-300',
+            S7A: 'bg-rose-500/20 text-rose-300',
+            S8: 'bg-purple-500/20 text-purple-300',
+            S9A: 'bg-indigo-500/20 text-indigo-300',
+            S9B: 'bg-violet-500/20 text-violet-300',
+            S9C: 'bg-fuchsia-500/20 text-fuchsia-300',
+            S10A: 'bg-slate-500/20 text-slate-300',
         }
         return colors[type || ''] || 'bg-slate-600/20 text-slate-400'
     }

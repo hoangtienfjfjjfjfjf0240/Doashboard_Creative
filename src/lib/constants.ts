@@ -5,11 +5,12 @@
 /** Video Creative point config */
 export const CREATIVE_POINT_CONFIG: Record<string, number> = {
     S1: 3,      // Bumper Ads (6s)
-    S2A: 2,     // Gen Hook Prompt to video
+    S2A: 1,     // Gen Hook Prompt to video
+    S2C: 1.5,   // Gen Hook Prompt to video + voice character sync
     S2B: 2.5,   // Gen Hook Image to video
     S3A: 2,     // Json_Button
     S3B: 5,     // Json_Tutorial
-    S4: 5,      // UGC
+    S4: 3,      // UGC
     S5: 6,      // Motion shot ads
     S6: 7,      // Source + Roto/Tracking
     S7: 10,     // Quay dựng + Roto/Tracking
