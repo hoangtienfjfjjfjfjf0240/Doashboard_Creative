@@ -126,6 +126,14 @@ export function getDashboardHalfForDate(date: Date): TargetHalfKey {
 }
 
 export function getDateRangeForHalf(halfKey: TargetHalfKey): { start: Date; end: Date } {
+    const halfWeeks = buildTargetTimelineWeeks().filter(week => week.halfKey === halfKey)
+    if (halfWeeks.length > 0) {
+        return {
+            start: halfWeeks[0].start,
+            end: endOfDay(addDays(halfWeeks[halfWeeks.length - 1].start, 4)),
+        }
+    }
+
     const halfPeriod = buildTargetPeriods().find(period => period.key === halfKey)
     if (!halfPeriod) {
         return {

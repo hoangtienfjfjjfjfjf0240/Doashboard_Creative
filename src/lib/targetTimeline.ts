@@ -98,7 +98,7 @@ const TARGET_TIMELINE_WEEKS: TargetTimelineWeek[] = (() => {
         }
     })
 
-    return weeks
+    return weeks.filter(week => !(week.year === 2026 && week.month === 5 && week.monthWeek === 4))
 })()
 
 export function buildTargetPeriods() {
@@ -122,4 +122,13 @@ export function getDefaultTargetHalfKey(now: Date = new Date()): TargetHalfKey {
 
 export function buildTargetTimelineWeeks() {
     return TARGET_TIMELINE_WEEKS
+}
+
+export function getTimelineWeeksForHalf(halfKey: TargetHalfKey) {
+    return TARGET_TIMELINE_WEEKS.filter(week => week.halfKey === halfKey)
+}
+
+export function getElapsedTimelineWeeksForHalf(halfKey: TargetHalfKey, now: Date = new Date()) {
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    return getTimelineWeeksForHalf(halfKey).filter(week => week.start <= today)
 }

@@ -162,6 +162,31 @@ function getWeeksForHalf(halfKey: TargetHalfKey) {
         .filter(weekData => getDashboardHalfForDate(weekData.startDate) === halfKey)
 }
 
+function getReferenceWeekForHalf(weeks: DashboardTimelineWeek[]) {
+    if (weeks.length === 0) {
+        return null
+    }
+
+    const today = new Date()
+    const currentWeek = weeks.find(weekData => {
+        const weekEnd = endOfDay(weekData.endDate)
+        return today >= weekData.startDate && today <= weekEnd
+    })
+
+    if (currentWeek) {
+        return currentWeek
+    }
+
+    const firstWeek = weeks[0]
+    const lastWeek = weeks[weeks.length - 1]
+
+    if (today < firstWeek.startDate) {
+        return firstWeek
+    }
+
+    return lastWeek
+}
+
 export default function FilterBar({
     weekStart,
     onWeekChange,
@@ -242,7 +267,7 @@ export default function FilterBar({
     const activeHalfWeek = visibleTimelineWeeks.find(weekData => {
         const weekEnd = endOfDay(weekData.endDate)
         return weekStart >= weekData.startDate && weekStart <= weekEnd
-    }) ?? visibleTimelineWeeks[0]
+    }) ?? getReferenceWeekForHalf(visibleTimelineWeeks) ?? visibleTimelineWeeks[0]
 
     const toggleAssignee = (assignee: string) => {
         if (selectedAssignees.includes(assignee)) {
@@ -274,14 +299,11 @@ export default function FilterBar({
 
     const handleHalfChange = (halfKey: TargetHalfKey) => {
         const range = getDateRangeForHalf(halfKey)
-        const firstWeekStart = getDashboardFirstWeekStartForHalf(halfKey) ?? range.start
         const weeksInHalf = getWeeksForHalf(halfKey)
-        const today = new Date()
-        const currentWeekInHalf = weeksInHalf.find(weekData => {
-            const weekEnd = endOfDay(weekData.endDate)
-            return today >= weekData.startDate && today <= weekEnd
-        })
-        const referenceWeekStart = currentWeekInHalf?.startDate ?? firstWeekStart
+        const referenceWeek = getReferenceWeekForHalf(weeksInHalf)
+        const referenceWeekStart = referenceWeek?.startDate
+            ?? getDashboardFirstWeekStartForHalf(halfKey)
+            ?? range.start
 
         onHalfChange(halfKey)
         onPresetChange('half')

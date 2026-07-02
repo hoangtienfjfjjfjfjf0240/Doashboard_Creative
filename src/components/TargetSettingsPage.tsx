@@ -179,7 +179,7 @@ export default function TargetSettingsPage({ projectType, theme }: TargetSetting
         () => getSelectedMonthLabel(selectedMonth, selectedPeriod.year),
         [selectedMonth, selectedPeriod.year]
     )
-    const canEditDefaultTarget = useMemo(() => canManageDefaultTarget(user), [user])
+    const canEditTargetSettings = useMemo(() => canManageDefaultTarget(user), [user])
 
     const fetchData = useCallback(async () => {
         try {
@@ -425,6 +425,8 @@ export default function TargetSettingsPage({ projectType, theme }: TargetSetting
     }, [fetchData, projectType, supabase, user])
 
     const updateTarget = (assigneeName: string, weekKey: string, value: number) => {
+        if (!canEditTargetSettings) return
+
         setTargets(previous => previous.map(target => {
             if (target.assignee_name !== assigneeName) return target
             return {
@@ -435,7 +437,7 @@ export default function TargetSettingsPage({ projectType, theme }: TargetSetting
     }
 
     const applyToMonth = () => {
-        if (!canEditDefaultTarget) {
+        if (!canEditTargetSettings) {
             setMessage({ type: 'error', text: 'Chỉ manager mới được chỉnh mục tiêu mặc định.' })
             setTimeout(() => setMessage(null), 3000)
             return
@@ -460,6 +462,12 @@ export default function TargetSettingsPage({ projectType, theme }: TargetSetting
     }
 
     const saveTargets = async () => {
+        if (!canEditTargetSettings) {
+            setMessage({ type: 'error', text: 'Chỉ manager mới được chỉnh sửa mục tiêu target.' })
+            setTimeout(() => setMessage(null), 3000)
+            return
+        }
+
         setSaving(true)
 
         try {
@@ -534,7 +542,7 @@ export default function TargetSettingsPage({ projectType, theme }: TargetSetting
                         </div>
                         <button
                             onClick={saveTargets}
-                            disabled={saving}
+                            disabled={saving || !canEditTargetSettings}
                             className={`flex items-center gap-2 px-5 py-2.5 ${theme.accentButton} ${theme.accentButtonHover} rounded-xl text-sm font-medium text-white transition-all disabled:opacity-50 shadow-lg shadow-green-900/30`}
                         >
                             <Save className={`w-4 h-4 ${saving ? 'animate-pulse' : ''}`} />
@@ -565,13 +573,13 @@ export default function TargetSettingsPage({ projectType, theme }: TargetSetting
                                 pattern="[0-9]*"
                                 value={defaultTarget}
                                 onChange={event => {
-                                    if (!canEditDefaultTarget) return
+                                    if (!canEditTargetSettings) return
                                     setDefaultTarget(event.target.value.replace(/[^0-9]/g, ''))
                                 }}
-                                disabled={!canEditDefaultTarget}
-                                readOnly={!canEditDefaultTarget}
+                                disabled={!canEditTargetSettings}
+                                readOnly={!canEditTargetSettings}
                                 className={`w-24 px-3 py-1.5 border rounded-lg text-sm text-white focus:outline-none focus:ring-2 ${theme.accentFocus} ${
-                                    canEditDefaultTarget
+                                    canEditTargetSettings
                                         ? 'bg-slate-700 border-slate-600'
                                         : 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
                                 }`}
@@ -637,9 +645,9 @@ export default function TargetSettingsPage({ projectType, theme }: TargetSetting
 
                         <button
                             onClick={applyToMonth}
-                            disabled={!canEditDefaultTarget}
+                            disabled={!canEditTargetSettings}
                             className={`flex items-center gap-2 px-4 py-2 border rounded-xl text-sm transition-colors ${
-                                canEditDefaultTarget
+                                canEditTargetSettings
                                     ? `${theme.accentSoftBg} ${theme.accentSoftHover} ${theme.accentSoftBorder} ${theme.accentSoftText}`
                                     : 'bg-slate-800/60 border-slate-700 text-slate-500 cursor-not-allowed'
                             }`}
@@ -804,10 +812,14 @@ export default function TargetSettingsPage({ projectType, theme }: TargetSetting
                                                                 value={target || ''}
                                                                 onChange={event => updateTarget(member.assignee_name, week.weekKey, parseInt(event.target.value) || 0)}
                                                                 placeholder="0"
+                                                                disabled={!canEditTargetSettings}
+                                                                readOnly={!canEditTargetSettings}
                                                                 className={`w-20 px-1 py-1 rounded text-center text-xs focus:outline-none focus:ring-2 ${theme.accentFocus} ${
-                                                                    hasOriginalTarget
-                                                                        ? 'bg-slate-700 text-white'
-                                                                        : 'bg-slate-800/50 text-slate-500'
+                                                                    canEditTargetSettings
+                                                                        ? hasOriginalTarget
+                                                                            ? 'bg-slate-700 text-white'
+                                                                            : 'bg-slate-800/50 text-slate-500'
+                                                                        : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                                                                 }`}
                                                             />
                                                         </div>

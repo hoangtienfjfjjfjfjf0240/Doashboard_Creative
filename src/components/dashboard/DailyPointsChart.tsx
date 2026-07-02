@@ -36,7 +36,7 @@ export default function DailyPointsChart({ tasks, dateRange, dateField = 'due_da
 
     const getTaskDate = (task: Task): string | null => {
         if (dateField === 'due_date') {
-            return task.due_date || (task.completed_at ? task.completed_at.split('T')[0] : null)
+            return task.due_date || null
         }
         return task.completed_at ? task.completed_at.split('T')[0] : null
     }

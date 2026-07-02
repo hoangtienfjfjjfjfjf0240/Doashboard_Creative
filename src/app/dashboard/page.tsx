@@ -23,9 +23,13 @@ import {
     getDateRangeFromDashboardPreset,
     type DashboardScopePreset,
 } from '@/lib/dashboardDatePresets'
-import type { TargetHalfKey } from '@/lib/targetTimeline'
+import {
+    getElapsedTimelineWeeksForHalf,
+    getTimelineWeeksForHalf,
+    type TargetHalfKey,
+} from '@/lib/targetTimeline'
 import type { Task, Target, DayOffEntry } from '@/lib/types'
-import { CREATIVE_POINT_CONFIG, WORKING_DAYS_PER_WEEK, FALLBACK_TARGET, TOTAL_WEEKS, isTargetDeductionDay } from '@/lib/constants'
+import { CREATIVE_POINT_CONFIG, WORKING_DAYS_PER_WEEK, FALLBACK_TARGET, isTargetDeductionDay } from '@/lib/constants'
 
 export default function DashboardPage() {
     const router = useRouter()
@@ -76,6 +80,16 @@ export default function DashboardPage() {
         () => getDashboardDateLabel(selectedPreset, dateRange, selectedWeeks.size, selectedHalf),
         [dateRange, selectedHalf, selectedPreset, selectedWeeks]
     )
+    const selectedHalfWeeks = useMemo(() => getTimelineWeeksForHalf(selectedHalf), [selectedHalf])
+    const selectedHalfActualWeekNums = useMemo(
+        () => new Set(selectedHalfWeeks.map(week => week.actualWeekNum)),
+        [selectedHalfWeeks]
+    )
+    const elapsedSelectedHalfActualWeekNums = useMemo(
+        () => new Set(getElapsedTimelineWeeksForHalf(selectedHalf).map(week => week.actualWeekNum)),
+        [selectedHalf]
+    )
+    const totalWeeksForSelectedHalf = selectedHalfWeeks.length
 
     // Get current user
     useEffect(() => {
@@ -343,15 +357,8 @@ export default function DashboardPage() {
 
     const displayTasks = baseFilteredTasks.filter(task => {
         const dueDate = task.due_date
-        if (task.status === 'done') {
-            if (!dueDate) return false
-            return dueDate >= dateRangeStartStr && dueDate <= dateRangeEndStr
-        }
-        // not_done tasks: filter by due_date if available, otherwise include
-        if (dueDate) {
-            return dueDate >= dateRangeStartStr && dueDate <= dateRangeEndStr
-        }
-        return true
+        if (!dueDate) return false
+        return dueDate >= dateRangeStartStr && dueDate <= dateRangeEndStr
     })
 
     const doneTasks = displayTasks.filter(t => t.status === 'done')
@@ -497,6 +504,7 @@ export default function DashboardPage() {
     // Per-week target comparison: deduct day offs for each specific week
     const weeksAchieved = Object.entries(pointsByWeek).filter(([weekNumStr, weekPoints]) => {
         const wk = parseInt(weekNumStr)
+        if (!selectedHalfActualWeekNums.has(wk)) return false
         const weekDeduction = dayOffDeductionsByWeek[wk] || 0
         const adjustedWeekTarget = Math.max(0, DEFAULT_TARGET_PER_MEMBER_PER_WEEK - weekDeduction)
         return weekPoints >= adjustedWeekTarget
@@ -550,7 +558,6 @@ export default function DashboardPage() {
     // Leaderboard: Calculate from ALL tasks (not date-filtered) to show total weeks achieved
     // This way the leaderboard always shows the big picture for ALL members
     const allDoneTasks = allTasks.filter(t => t.status === 'done')
-    const currentWeekNum = getWeek(new Date(), { weekStartsOn: 1 })
     const leaderboardData = allAssigneeNames.map(name => {
         const normalizedName = normalizeName(name)
         const memberAllDone = allDoneTasks.filter(t => normalizeName(t.assignee_name || '') === normalizedName)
@@ -565,11 +572,9 @@ export default function DashboardPage() {
             const dueDate = task.due_date
             if (dueDate) {
                 const d = new Date(dueDate)
-                // Only count 2026 weeks from February onwards
-                if (d.getFullYear() === 2026 && d.getMonth() >= 1) {
-                    const weekNum = getWeek(d, { weekStartsOn: 1 })
-                    memberPointsByWeek[weekNum] = (memberPointsByWeek[weekNum] || 0) + (task.points || 0)
-                }
+                const weekNum = getWeek(d, { weekStartsOn: 1 })
+                if (!selectedHalfActualWeekNums.has(weekNum)) return
+                memberPointsByWeek[weekNum] = (memberPointsByWeek[weekNum] || 0) + (task.points || 0)
             }
         })
 
@@ -578,21 +583,19 @@ export default function DashboardPage() {
         dayOffs.forEach(d => {
             if (normalizeName(d.member_name || '') === normalizedName) {
                 const date = new Date(d.date)
-                if (date.getFullYear() === 2026 && date.getMonth() >= 1) {
-                    if (!isTargetDeductionDay(date)) return
-                    const weekNum = getWeek(date, { weekStartsOn: 1 })
-                    const ptsPerDay = memberOwnTarget / WORKING_DAYS_PER_WEEK
-                    const deduction = d.is_half_day ? ptsPerDay / 2 : ptsPerDay
-                    memberDayOffsByWeek[weekNum] = (memberDayOffsByWeek[weekNum] || 0) + deduction
-                }
+                if (!isTargetDeductionDay(date)) return
+                const weekNum = getWeek(date, { weekStartsOn: 1 })
+                if (!selectedHalfActualWeekNums.has(weekNum)) return
+                const ptsPerDay = memberOwnTarget / WORKING_DAYS_PER_WEEK
+                const deduction = d.is_half_day ? ptsPerDay / 2 : ptsPerDay
+                memberDayOffsByWeek[weekNum] = (memberDayOffsByWeek[weekNum] || 0) + deduction
             }
         })
 
-        // Only count weeks that have elapsed (up to current week)
         const memberWeeksAchieved = Object.entries(memberPointsByWeek)
             .filter(([weekNum, pts]) => {
                 const wk = parseInt(weekNum)
-                if (wk > currentWeekNum) return false // skip future weeks
+                if (!elapsedSelectedHalfActualWeekNums.has(wk)) return false
                 const deduction = memberDayOffsByWeek[wk] || 0
                 const adjustedTarget = Math.max(0, memberOwnTarget - deduction)
                 return pts >= adjustedTarget
@@ -603,7 +606,7 @@ export default function DashboardPage() {
             points: totalPoints,
             target: memberOwnTarget,
             weeksAchieved: memberWeeksAchieved,
-            totalWeeks: TOTAL_WEEKS,
+            totalWeeks: totalWeeksForSelectedHalf,
         }
     })
 
@@ -640,9 +643,11 @@ export default function DashboardPage() {
     const filteredDoneTasks = filteredTasks.filter(t => t.status === 'done')
     const filteredNotDoneTasks = filteredTasks.filter(t => t.status === 'not_done')
 
-    // For Leaderboard and DueDateStats: always show all team data
-    const filteredLeaderboardData = leaderboardData // Always show full team
-    const filteredAssigneeStats = assigneeStats // Always show full team (not used anymore)
+    const filteredLeaderboardData = selectedAssignees.length > 0
+        ? leaderboardData.filter(entry =>
+            selectedAssignees.some(assignee => normalizeName(assignee) === normalizeName(entry.name))
+        )
+        : leaderboardData
 
     return (
         <DashboardLayout>
@@ -709,7 +714,7 @@ export default function DashboardPage() {
                         teamTargetPoints={teamTargetPoints}
                         teamAchievedPercent={teamAchievedPercent}
                         weeksAchieved={weeksAchieved}
-                        totalWeeks={TOTAL_WEEKS}
+                        totalWeeks={totalWeeksForSelectedHalf}
                     />
 
                     {/* Row 2: Charts — Points chart bigger, Video chart smaller */}
@@ -729,8 +734,8 @@ export default function DashboardPage() {
                     {/* Row 3: Leaderboard + Due Date Stats + CTST */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
                         <Leaderboard data={filteredLeaderboardData} />
-                        <DueDateStats tasks={allTasks} dueDateChanges={dueDateChanges} />
-                        <CTSTChart tasks={displayTasks} />
+                        <DueDateStats tasks={displayTasks} dueDateChanges={dueDateChanges} />
+                        <CTSTChart tasks={doneTasks} />
                     </div>
 
                     {/* Row 4: Task Tables */}
