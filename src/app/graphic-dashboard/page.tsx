@@ -154,18 +154,29 @@ export default function GraphicDashboardPage() {
                     .range(from, to)
             )
 
-            setAllTasks(tasks)
-            const uniqueAssignees = [...new Set(tasks.map(t => t.assignee_name).filter(Boolean))] as string[]
-            setAssignees(uniqueAssignees.sort())
-
             const { data: targetsData } = await supabase
                 .from('targets')
                 .select('user_gid, week_start_date, target_points')
                 .eq('project_type', 'graphic')
 
+            setAllTasks(tasks)
+
             if (targetsData) {
                 setTargets(targetsData)
             }
+
+            const combinedAssignees = new Set<string>()
+            tasks.forEach(task => {
+                if (task.assignee_name) {
+                    combinedAssignees.add(task.assignee_name)
+                }
+            })
+            targetsData?.forEach(target => {
+                if (target.user_gid) {
+                    combinedAssignees.add(target.user_gid)
+                }
+            })
+            setAssignees([...combinedAssignees].sort())
 
             const dayOffsData = await fetchAllPages<DayOffEntry>((from, to) =>
                 supabase
@@ -369,9 +380,11 @@ export default function GraphicDashboardPage() {
         ? [user.asanaName || user.fullName || '']
         : selectedAssignees.length > 0
             ? selectedAssignees
-            : targetTableMembers.length > 0
-                ? targetTableMembers
-                : [...new Set(doneTasks.map(t => t.assignee_name).filter(Boolean))] as string[]
+            : assignees.length > 0
+                ? assignees
+                : targetTableMembers.length > 0
+                    ? targetTableMembers
+                    : [...new Set(doneTasks.map(t => t.assignee_name).filter(Boolean))] as string[]
 
     const dayOffsByMemberDate = new Map<string, DayOffEntry>()
     dayOffs.forEach(d => {
@@ -458,7 +471,9 @@ export default function GraphicDashboardPage() {
         }
     })
 
-    const allAssigneeNames = [...new Set(allTasks.map(t => t.assignee_name).filter(Boolean))] as string[]
+    const allAssigneeNames = assignees.length > 0
+        ? assignees
+        : [...new Set(allTasks.map(t => t.assignee_name).filter(Boolean))] as string[]
 
     const allDoneTasks = allTasks.filter(t => t.status === 'done')
     const leaderboardData = allAssigneeNames.map(name => {

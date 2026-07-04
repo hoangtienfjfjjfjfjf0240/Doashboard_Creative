@@ -216,7 +216,7 @@ export default function TargetSettingsPage({ projectType, theme }: TargetSetting
                 .from('profiles')
                 .select('full_name, asana_name, role, role_creative, role_graphic, email')
 
-            let memberNames: string[] = []
+            const memberNameSet = new Set<string>()
             const profileNameByEmail: Record<string, string> = {}
 
             if (allProfiles) {
@@ -228,24 +228,9 @@ export default function TargetSettingsPage({ projectType, theme }: TargetSetting
                     }
                     if (profileRow.role === 'admin' && !profileRow.asana_name) return
                     if (!shouldIncludeAssigneeRow(profileRow, projectType)) return
-                    memberNames.push(displayName)
+                    memberNameSet.add(displayName)
                 })
             }
-
-            const isRestrictedMember = projectType === 'creative'
-                ? currentUser.role === 'member'
-                : currentUser.projectRole === 'member' || (currentUser.role === 'member' && !['admin', 'manager'].includes(currentUser.projectRole))
-
-            if (isRestrictedMember) {
-                memberNames = memberNames.filter(name => name === currentUser.asanaName || name === currentUser.fullName)
-                if (memberNames.length === 0) {
-                    const selfName = currentUser.asanaName || currentUser.fullName
-                    if (selfName) memberNames = [selfName]
-                }
-            }
-
-            memberNames = [...new Set(memberNames)].sort()
-            setAssignees(memberNames)
 
             const tasks = await fetchAllPages<{
                 id: string
@@ -268,6 +253,39 @@ export default function TargetSettingsPage({ projectType, theme }: TargetSetting
                 .from('targets')
                 .select('id, user_gid, week_start_date, target_points, project_type')
                 .eq('project_type', projectType)
+
+            tasks.forEach(task => {
+                const profileName = task.assignee_email
+                    ? profileNameByEmail[task.assignee_email.toLowerCase()]
+                    : undefined
+                const assigneeName = profileName || task.assignee_name
+                if (assigneeName) {
+                    memberNameSet.add(assigneeName)
+                }
+            })
+
+            existingTargets?.forEach(targetRow => {
+                if (targetRow.user_gid) {
+                    memberNameSet.add(targetRow.user_gid)
+                }
+            })
+
+            let memberNames = [...memberNameSet]
+
+            const isRestrictedMember = projectType === 'creative'
+                ? currentUser.role === 'member'
+                : currentUser.projectRole === 'member' || (currentUser.role === 'member' && !['admin', 'manager'].includes(currentUser.projectRole))
+
+            if (isRestrictedMember) {
+                memberNames = memberNames.filter(name => name === currentUser.asanaName || name === currentUser.fullName)
+                if (memberNames.length === 0) {
+                    const selfName = currentUser.asanaName || currentUser.fullName
+                    if (selfName) memberNames = [selfName]
+                }
+            }
+
+            memberNames = [...new Set(memberNames)].sort()
+            setAssignees(memberNames)
 
             const dayOffsData = await fetchAllPages<DayOffRecord>((from, to) =>
                 supabase
