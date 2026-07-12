@@ -28,7 +28,7 @@ import {
     type TargetHalfKey,
 } from '@/lib/targetTimeline'
 import type { Task, Target, DayOffEntry } from '@/lib/types'
-import { DESIGN_POINT_CONFIG, WORKING_DAYS_PER_WEEK, FALLBACK_TARGET, isTargetDeductionDay } from '@/lib/constants'
+import { DESIGN_ASSET_TYPES, WORKING_DAYS_PER_WEEK, FALLBACK_TARGET, isTargetDeductionDay } from '@/lib/constants'
 
 export default function GraphicDashboardPage() {
     const router = useRouter()
@@ -159,6 +159,10 @@ export default function GraphicDashboardPage() {
                 .select('user_gid, week_start_date, target_points')
                 .eq('project_type', 'graphic')
 
+            const { data: graphicProfiles } = await supabase
+                .from('profiles')
+                .select('asana_name, role_graphic')
+
             setAllTasks(tasks)
 
             if (targetsData) {
@@ -166,14 +170,30 @@ export default function GraphicDashboardPage() {
             }
 
             const combinedAssignees = new Set<string>()
+            const taskAssigneeSet = new Set<string>()
+            const validGraphicProfileNames = new Set<string>()
+
+            graphicProfiles?.forEach(profile => {
+                if (profile.asana_name && profile.role_graphic && profile.role_graphic !== 'none') {
+                    validGraphicProfileNames.add(profile.asana_name)
+                }
+            })
+
             tasks.forEach(task => {
                 if (task.assignee_name) {
                     combinedAssignees.add(task.assignee_name)
+                    taskAssigneeSet.add(task.assignee_name)
                 }
             })
             targetsData?.forEach(target => {
                 if (target.user_gid) {
-                    combinedAssignees.add(target.user_gid)
+                    const normalizedTargetName = normalizeName(target.user_gid)
+                    const isKnownGraphicProfile = [...validGraphicProfileNames].some(name => normalizeName(name) === normalizedTargetName)
+                    const hasGraphicTask = [...taskAssigneeSet].some(name => normalizeName(name) === normalizedTargetName)
+
+                    if (isKnownGraphicProfile || hasGraphicTask) {
+                        combinedAssignees.add(target.user_gid)
+                    }
                 }
             })
             setAssignees([...combinedAssignees].sort())
@@ -601,7 +621,7 @@ export default function GraphicDashboardPage() {
                         onAssigneesChange={setSelectedAssignees}
                         status={status}
                         onStatusChange={setStatus}
-                        videoTypes={Object.keys(DESIGN_POINT_CONFIG)}
+                        videoTypes={[...DESIGN_ASSET_TYPES]}
                         selectedVideoTypes={selectedVideoTypes}
                         onVideoTypesChange={setSelectedVideoTypes}
                         onSync={handleSync}

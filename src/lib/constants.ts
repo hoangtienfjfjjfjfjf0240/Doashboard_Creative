@@ -1,6 +1,4 @@
-// ──────────────────────────────────────────────────
-// Shared constants — single source of truth
-// ──────────────────────────────────────────────────
+// Shared constants - single source of truth
 
 /** Video Creative legacy point config (before H2 2026) */
 export const LEGACY_CREATIVE_POINT_CONFIG: Record<string, number> = {
@@ -12,8 +10,8 @@ export const LEGACY_CREATIVE_POINT_CONFIG: Record<string, number> = {
     S4: 3,      // UGC
     S5: 6,      // Motion shot ads
     S6: 7,      // Source + Roto/Tracking
-    S7: 10,     // Quay dá»±ng + Roto/Tracking
-    S7A: 5,     // Quay dá»±ng dáº¡ng A
+    S7: 10,     // Quay dung + Roto/Tracking
+    S7A: 5,     // Quay dung dang A
     S8: 48,     // Video HomePage
     S9A: 2.5,   // Drama: Duration < 10 min
     S9B: 4,     // Drama: Duration 11 - 20 min
@@ -32,8 +30,8 @@ export const CREATIVE_POINT_CONFIG: Record<string, number> = {
     S4: 3,      // UGC
     S5: 6,      // Motion shot ads
     S6: 7,      // Source + Roto/Tracking
-    S7: 10,     // Quay dựng + Roto/Tracking
-    S7A: 5,     // Quay dựng dạng A
+    S7: 10,     // Quay dung + Roto/Tracking
+    S7A: 5,     // Quay dung dang A
     S8: 48,     // Video HomePage
     S9A: 2.5,   // Drama: Duration < 10 min
     S9B: 4,     // Drama: Duration 11 - 20 min
@@ -44,17 +42,45 @@ export const CREATIVE_POINT_CONFIG: Record<string, number> = {
 /** H2 2026 cutover date for new Video Creative point rule */
 export const CREATIVE_POINT_RULE_H2_START_DATE = '2026-07-01'
 
-/** Graphic Design point config — keys must match Asana "Asset" enum values */
+/**
+ * Graphic Design point config - keys must match Asana "Asset" enum values.
+ * Keep old aliases as well so existing tasks do not lose points after renaming.
+ */
 export const DESIGN_POINT_CONFIG: Record<string, number> = {
-    'Research Doc': 12,
+    'Research Doc': 6,
     'ScreenShot': 24,
+    'Screenshot': 24,
+    'ScreenShot (loai 2)': 12,
     'ScreenShot (loại 2)': 12,
-    'Icon': 2,
-    'Cover, Promotional Content': 12,
-    'Localize Screenshot': 6,
-    'Localize': 3,
-    'Deep Localize': 20,
+    'Screenshot (loai 2)': 12,
+    'Screenshot (loại 2)': 12,
+    'ScreenShot (loai 3)': 6,
+    'ScreenShot (loại 3)': 6,
+    'Screenshot (loai 3)': 6,
+    'Screenshot (loại 3)': 6,
+    Icon: 2,
+    'Cover, Promotional Content': 6,
+    'Localize Screenshot': 3,
+    Localize: 3,
+    'Deep Localize': 18,
+    'Image Ads (1size)': 0.1,
+    'Image Ads (3size)': 0.3,
 }
+
+/** Canonical Graphic Design asset types for UI filters/forms */
+export const DESIGN_ASSET_TYPES = [
+    'Research Doc',
+    'Screenshot',
+    'Screenshot (loại 2)',
+    'Screenshot (loại 3)',
+    'Icon',
+    'Cover, Promotional Content',
+    'Localize Screenshot',
+    'Localize',
+    'Deep Localize',
+    'Image Ads (1size)',
+    'Image Ads (3size)',
+] as const
 
 /** All creative video type keys */
 export const VIDEO_TYPES = Object.keys(CREATIVE_POINT_CONFIG)

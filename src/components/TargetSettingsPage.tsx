@@ -89,6 +89,15 @@ function formatPoint(value: number): string {
     return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
 }
 
+function normalizeName(name: string) {
+    return name
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[\s\u200B-\u200D\uFEFF]+/g, '')
+        .toLowerCase()
+        .trim()
+}
+
 function getProjectRole(profile: ProfileRow | null, projectType: ProjectType) {
     const globalRole = profile?.role || 'member'
     return projectType === 'creative'
@@ -97,6 +106,10 @@ function getProjectRole(profile: ProfileRow | null, projectType: ProjectType) {
 }
 
 function shouldIncludeAssigneeRow(profile: ProfileRow, projectType: ProjectType) {
+    if (projectType === 'graphic') {
+        return getProjectRole(profile, projectType) !== 'none' && Boolean(profile.asana_name)
+    }
+
     return getProjectRole(profile, projectType) === 'member'
 }
 
@@ -217,6 +230,7 @@ export default function TargetSettingsPage({ projectType, theme }: TargetSetting
                 .select('full_name, asana_name, role, role_creative, role_graphic, email')
 
             const memberNameSet = new Set<string>()
+            const seededProfileNameSet = new Set<string>()
             const profileNameByEmail: Record<string, string> = {}
 
             if (allProfiles) {
@@ -229,6 +243,7 @@ export default function TargetSettingsPage({ projectType, theme }: TargetSetting
                     if (profileRow.role === 'admin' && !profileRow.asana_name) return
                     if (!shouldIncludeAssigneeRow(profileRow, projectType)) return
                     memberNameSet.add(displayName)
+                    seededProfileNameSet.add(displayName)
                 })
             }
 
@@ -254,6 +269,7 @@ export default function TargetSettingsPage({ projectType, theme }: TargetSetting
                 .select('id, user_gid, week_start_date, target_points, project_type')
                 .eq('project_type', projectType)
 
+            const taskNameSet = new Set<string>()
             tasks.forEach(task => {
                 const profileName = task.assignee_email
                     ? profileNameByEmail[task.assignee_email.toLowerCase()]
@@ -261,12 +277,24 @@ export default function TargetSettingsPage({ projectType, theme }: TargetSetting
                 const assigneeName = profileName || task.assignee_name
                 if (assigneeName) {
                     memberNameSet.add(assigneeName)
+                    taskNameSet.add(assigneeName)
                 }
             })
 
             existingTargets?.forEach(targetRow => {
                 if (targetRow.user_gid) {
-                    memberNameSet.add(targetRow.user_gid)
+                    if (projectType !== 'graphic') {
+                        memberNameSet.add(targetRow.user_gid)
+                        return
+                    }
+
+                    const normalizedTargetName = normalizeName(targetRow.user_gid)
+                    const isKnownGraphicProfile = [...seededProfileNameSet].some(name => normalizeName(name) === normalizedTargetName)
+                    const hasGraphicTask = [...taskNameSet].some(name => normalizeName(name) === normalizedTargetName)
+
+                    if (isKnownGraphicProfile || hasGraphicTask) {
+                        memberNameSet.add(targetRow.user_gid)
+                    }
                 }
             })
 

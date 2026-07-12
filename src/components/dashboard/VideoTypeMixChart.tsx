@@ -28,40 +28,70 @@ const VIDEO_TYPE_COLORS: Record<string, { badge: string; bar: string; glow: stri
     S9A: { badge: 'bg-indigo-500', bar: 'linear-gradient(90deg, #6366f1, #818cf8)', glow: 'rgba(99,102,241,0.3)' },
     S9B: { badge: 'bg-violet-500', bar: 'linear-gradient(90deg, #8b5cf6, #a78bfa)', glow: 'rgba(139,92,246,0.3)' },
     S9C: { badge: 'bg-fuchsia-500', bar: 'linear-gradient(90deg, #d946ef, #e879f9)', glow: 'rgba(217,70,239,0.3)' },
-    // Graphic design types
-    ScreenShot: { badge: 'bg-cyan-500', bar: 'linear-gradient(90deg, #06b6d4, #22d3ee)', glow: 'rgba(6,182,212,0.3)' },
-    'ScreenShot (loại 2)': { badge: 'bg-sky-500', bar: 'linear-gradient(90deg, #0ea5e9, #38bdf8)', glow: 'rgba(14,165,233,0.3)' },
-    'Deep Localize': { badge: 'bg-teal-500', bar: 'linear-gradient(90deg, #14b8a6, #2dd4bf)', glow: 'rgba(20,184,166,0.3)' },
-    'Cover, Promotional Content': { badge: 'bg-rose-500', bar: 'linear-gradient(90deg, #f43f5e, #fb7185)', glow: 'rgba(244,63,94,0.3)' },
-    Icon: { badge: 'bg-lime-500', bar: 'linear-gradient(90deg, #84cc16, #a3e635)', glow: 'rgba(132,204,22,0.3)' },
     'Research Doc': { badge: 'bg-yellow-500', bar: 'linear-gradient(90deg, #eab308, #facc15)', glow: 'rgba(234,179,8,0.3)' },
+    ScreenShot: { badge: 'bg-cyan-500', bar: 'linear-gradient(90deg, #06b6d4, #22d3ee)', glow: 'rgba(6,182,212,0.3)' },
+    Screenshot: { badge: 'bg-cyan-500', bar: 'linear-gradient(90deg, #06b6d4, #22d3ee)', glow: 'rgba(6,182,212,0.3)' },
+    'ScreenShot (loai 2)': { badge: 'bg-sky-500', bar: 'linear-gradient(90deg, #0ea5e9, #38bdf8)', glow: 'rgba(14,165,233,0.3)' },
+    'ScreenShot (loại 2)': { badge: 'bg-sky-500', bar: 'linear-gradient(90deg, #0ea5e9, #38bdf8)', glow: 'rgba(14,165,233,0.3)' },
+    'Screenshot (loai 2)': { badge: 'bg-sky-500', bar: 'linear-gradient(90deg, #0ea5e9, #38bdf8)', glow: 'rgba(14,165,233,0.3)' },
+    'Screenshot (loại 2)': { badge: 'bg-sky-500', bar: 'linear-gradient(90deg, #0ea5e9, #38bdf8)', glow: 'rgba(14,165,233,0.3)' },
+    'ScreenShot (loai 3)': { badge: 'bg-blue-500', bar: 'linear-gradient(90deg, #2563eb, #60a5fa)', glow: 'rgba(37,99,235,0.3)' },
+    'ScreenShot (loại 3)': { badge: 'bg-blue-500', bar: 'linear-gradient(90deg, #2563eb, #60a5fa)', glow: 'rgba(37,99,235,0.3)' },
+    'Screenshot (loai 3)': { badge: 'bg-blue-500', bar: 'linear-gradient(90deg, #2563eb, #60a5fa)', glow: 'rgba(37,99,235,0.3)' },
+    'Screenshot (loại 3)': { badge: 'bg-blue-500', bar: 'linear-gradient(90deg, #2563eb, #60a5fa)', glow: 'rgba(37,99,235,0.3)' },
+    Icon: { badge: 'bg-lime-500', bar: 'linear-gradient(90deg, #84cc16, #a3e635)', glow: 'rgba(132,204,22,0.3)' },
+    'Cover, Promotional Content': { badge: 'bg-rose-500', bar: 'linear-gradient(90deg, #f43f5e, #fb7185)', glow: 'rgba(244,63,94,0.3)' },
     'Localize Screenshot': { badge: 'bg-emerald-400', bar: 'linear-gradient(90deg, #34d399, #6ee7b7)', glow: 'rgba(52,211,153,0.3)' },
+    Localize: { badge: 'bg-green-500', bar: 'linear-gradient(90deg, #22c55e, #4ade80)', glow: 'rgba(34,197,94,0.3)' },
+    'Deep Localize': { badge: 'bg-teal-500', bar: 'linear-gradient(90deg, #14b8a6, #2dd4bf)', glow: 'rgba(20,184,166,0.3)' },
+    'Image Ads (1size)': { badge: 'bg-orange-500', bar: 'linear-gradient(90deg, #f97316, #fdba74)', glow: 'rgba(249,115,22,0.3)' },
+    'Image Ads (3size)': { badge: 'bg-pink-500', bar: 'linear-gradient(90deg, #ec4899, #f9a8d4)', glow: 'rgba(236,72,153,0.3)' },
 }
 
-// Short labels for display
 const VIDEO_TYPE_SHORT: Record<string, string> = {
-    'ScreenShot': 'SS',
+    'Research Doc': 'RDoc',
+    ScreenShot: 'SS',
+    Screenshot: 'SS',
+    'ScreenShot (loai 2)': 'SS2',
     'ScreenShot (loại 2)': 'SS2',
-    'Deep Localize': 'DL',
+    'Screenshot (loai 2)': 'SS2',
+    'Screenshot (loại 2)': 'SS2',
+    'ScreenShot (loai 3)': 'SS3',
+    'ScreenShot (loại 3)': 'SS3',
+    'Screenshot (loai 3)': 'SS3',
+    'Screenshot (loại 3)': 'SS3',
+    Icon: 'Icon',
     'Cover, Promotional Content': 'Cover',
     'Localize Screenshot': 'LocSS',
-    'Research Doc': 'RDoc',
-    'Icon': 'Icon',
+    Localize: 'Loc',
+    'Deep Localize': 'DL',
+    'Image Ads (1size)': '1size',
+    'Image Ads (3size)': '3size',
 }
 
-// Per-type unit override for graphic dashboard
-// These types use "bộ" instead of "image"
 const UNIT_OVERRIDE_BO = new Set([
-    'Localize',
-    'Localize Screenshot',
-    'Deep Localize',
-    'ScreenShot',
-    'ScreenShot (loại 2)',
     'Research Doc',
+    'ScreenShot',
+    'Screenshot',
+    'ScreenShot (loai 2)',
+    'ScreenShot (loại 2)',
+    'Screenshot (loai 2)',
+    'Screenshot (loại 2)',
+    'ScreenShot (loai 3)',
+    'ScreenShot (loại 3)',
+    'Screenshot (loai 3)',
+    'Screenshot (loại 3)',
     'Cover, Promotional Content',
+    'Localize Screenshot',
+    'Localize',
+    'Deep Localize',
 ])
 
-const DEFAULT_COLORS = { badge: 'bg-slate-500', bar: 'linear-gradient(90deg, #64748b, #94a3b8)', glow: 'rgba(100,116,139,0.3)' }
+const DEFAULT_COLORS = {
+    badge: 'bg-slate-500',
+    bar: 'linear-gradient(90deg, #64748b, #94a3b8)',
+    glow: 'rgba(100,116,139,0.3)',
+}
 
 export default function VideoTypeMixChart({ data, unit = 'video' }: VideoTypeMixChartProps) {
     const isImageMode = unit === 'image'
@@ -81,20 +111,18 @@ export default function VideoTypeMixChart({ data, unit = 'video' }: VideoTypeMix
             name: type,
             count: stats.count,
             videos: stats.videos,
-            colors: VIDEO_TYPE_COLORS[type] || DEFAULT_COLORS
+            colors: VIDEO_TYPE_COLORS[type] || DEFAULT_COLORS,
         }))
         .sort((a, b) => b.videos - a.videos)
 
     const maxVideos = Math.max(...chartData.map(d => d.videos), 1)
     const totalVideos = chartData.reduce((sum, d) => sum + d.videos, 0)
 
-    // Determine unit label per type
     const getUnitLabel = (typeName: string) => {
         if (!isImageMode) return 'videos'
         return UNIT_OVERRIDE_BO.has(typeName) ? 'bộ' : 'image'
     }
 
-    // For the header total, use a generic label
     const defaultUnitLabel = isImageMode ? 'items' : 'videos'
 
     return (
@@ -122,12 +150,10 @@ export default function VideoTypeMixChart({ data, unit = 'video' }: VideoTypeMix
                         return (
                             <div key={item.name} className="group relative">
                                 <div className="flex items-center gap-3">
-                                    {/* Badge */}
                                     <div className={`w-16 flex-shrink-0 text-center px-1.5 py-1.5 rounded-lg ${item.colors.badge} transition-transform duration-200 group-hover:scale-105 shadow-md`}>
                                         <span className="text-xs font-bold text-white drop-shadow-md">{VIDEO_TYPE_SHORT[item.name] || item.name}</span>
                                     </div>
 
-                                    {/* Bar track */}
                                     <div className="flex-1 h-8 bg-slate-700/25 rounded-lg overflow-hidden relative border border-slate-700/30">
                                         <div
                                             className="h-full rounded-lg animate-bar-grow transition-shadow duration-300"
@@ -147,11 +173,12 @@ export default function VideoTypeMixChart({ data, unit = 'video' }: VideoTypeMix
                                         </div>
                                     </div>
 
-                                    {/* Percentage */}
                                     <div className="w-14 flex-shrink-0 text-right">
-                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${parseFloat(sharePercent) >= 50 ? 'bg-green-500/15 text-green-300' :
-                                            parseFloat(sharePercent) >= 20 ? 'bg-blue-500/15 text-blue-300' :
-                                                'bg-slate-600/25 text-slate-400'
+                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${parseFloat(sharePercent) >= 50
+                                            ? 'bg-green-500/15 text-green-300'
+                                            : parseFloat(sharePercent) >= 20
+                                                ? 'bg-blue-500/15 text-blue-300'
+                                                : 'bg-slate-600/25 text-slate-400'
                                             }`}>
                                             {sharePercent}%
                                         </span>
@@ -165,8 +192,7 @@ export default function VideoTypeMixChart({ data, unit = 'video' }: VideoTypeMix
                 <div className="flex items-center justify-center h-32 text-slate-500 text-sm">
                     Chưa có dữ liệu
                 </div>
-            )
-            }
+            )}
         </div>
     )
 }
