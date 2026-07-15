@@ -4,6 +4,7 @@
 export const LEGACY_CREATIVE_POINT_CONFIG: Record<string, number> = {
     S1: 3,      // Bumper Ads (6s)
     S2A: 2,     // Gen Hook Prompt to video
+    S2C: 2,     // Gen Hook Prompt to video + voice character sync
     S2B: 2.5,   // Gen Hook Image to video
     S3A: 2,     // Json_Button
     S3B: 5,     // Json_Tutorial
@@ -16,14 +17,15 @@ export const LEGACY_CREATIVE_POINT_CONFIG: Record<string, number> = {
     S9A: 2.5,   // Drama: Duration < 10 min
     S9B: 4,     // Drama: Duration 11 - 20 min
     S9C: 7,     // Drama: Duration > 21 min
-    S10A: 1,    // Translate
+    S10A: 1,    // Translate: Voice + Sub Text
+    S10B: 1,    // Translate: Text Body
 }
 
 /** Video Creative point config (from H2 2026 onward) */
 export const CREATIVE_POINT_CONFIG: Record<string, number> = {
     S1: 3,      // Bumper Ads (6s)
-    S2A: 1,     // Gen Hook Prompt to video
-    S2C: 1.5,   // Gen Hook Prompt to video + voice character sync
+    S2A: 2,     // Gen Hook Prompt to video
+    S2C: 2,     // Gen Hook Prompt to video + voice character sync
     S2B: 2.5,   // Gen Hook Image to video
     S3A: 2,     // Json_Button
     S3B: 5,     // Json_Tutorial
@@ -36,7 +38,8 @@ export const CREATIVE_POINT_CONFIG: Record<string, number> = {
     S9A: 2.5,   // Drama: Duration < 10 min
     S9B: 4,     // Drama: Duration 11 - 20 min
     S9C: 7,     // Drama: Duration > 21 min
-    S10A: 1,    // Translate
+    S10A: 1,    // Translate: Voice + Sub Text
+    S10B: 1,    // Translate: Text Body
 }
 
 /** H2 2026 cutover date for new Video Creative point rule */

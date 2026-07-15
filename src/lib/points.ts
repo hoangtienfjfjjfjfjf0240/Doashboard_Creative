@@ -30,6 +30,7 @@ export function getVideoTypeColor(videoType: string): string {
         S9B: '#c084fc',
         S9C: '#a78bfa',
         S10A: '#6b7280',
+        S10B: '#9ca3af',
     }
     return colors[videoType] || '#6b7280'
 }

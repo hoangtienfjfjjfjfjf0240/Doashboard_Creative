@@ -28,6 +28,8 @@ const VIDEO_TYPE_COLORS: Record<string, { badge: string; bar: string; glow: stri
     S9A: { badge: 'bg-indigo-500', bar: 'linear-gradient(90deg, #6366f1, #818cf8)', glow: 'rgba(99,102,241,0.3)' },
     S9B: { badge: 'bg-violet-500', bar: 'linear-gradient(90deg, #8b5cf6, #a78bfa)', glow: 'rgba(139,92,246,0.3)' },
     S9C: { badge: 'bg-fuchsia-500', bar: 'linear-gradient(90deg, #d946ef, #e879f9)', glow: 'rgba(217,70,239,0.3)' },
+    S10A: { badge: 'bg-slate-500', bar: 'linear-gradient(90deg, #64748b, #94a3b8)', glow: 'rgba(100,116,139,0.3)' },
+    S10B: { badge: 'bg-zinc-500', bar: 'linear-gradient(90deg, #71717a, #a1a1aa)', glow: 'rgba(113,113,122,0.3)' },
     'Research Doc': { badge: 'bg-yellow-500', bar: 'linear-gradient(90deg, #eab308, #facc15)', glow: 'rgba(234,179,8,0.3)' },
     ScreenShot: { badge: 'bg-cyan-500', bar: 'linear-gradient(90deg, #06b6d4, #22d3ee)', glow: 'rgba(6,182,212,0.3)' },
     Screenshot: { badge: 'bg-cyan-500', bar: 'linear-gradient(90deg, #06b6d4, #22d3ee)', glow: 'rgba(6,182,212,0.3)' },
@@ -67,6 +69,8 @@ const VIDEO_TYPE_SHORT: Record<string, string> = {
     'Deep Localize': 'DL',
     'Image Ads (1size)': '1size',
     'Image Ads (3size)': '3size',
+    S10A: 'S10A',
+    S10B: 'S10B',
 }
 
 const UNIT_OVERRIDE_BO = new Set([
