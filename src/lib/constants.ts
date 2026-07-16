@@ -3,9 +3,9 @@
 /** Video Creative legacy point config (before H2 2026) */
 export const LEGACY_CREATIVE_POINT_CONFIG: Record<string, number> = {
     S1: 3,      // Bumper Ads (6s)
-    S2A: 2,     // Gen Hook Prompt to video
-    S2C: 2,     // Gen Hook Prompt to video + voice character sync
-    S2B: 2.5,   // Gen Hook Image to video
+    S2A: 1,     // Gen Hook Prompt to video
+    S2C: 1.5,   // Gen Hook Prompt to video + voice character sync
+    S2B: 2,     // Gen Hook Image to video
     S3A: 2,     // Json_Button
     S3B: 5,     // Json_Tutorial
     S4: 3,      // UGC
@@ -13,6 +13,7 @@ export const LEGACY_CREATIVE_POINT_CONFIG: Record<string, number> = {
     S6: 7,      // Source + Roto/Tracking
     S7: 10,     // Quay dung + Roto/Tracking
     S7A: 5,     // Quay dung dang A
+    S7B: 3,     // Quay dung source in app
     S8: 48,     // Video HomePage
     S9A: 2.5,   // Drama: Duration < 10 min
     S9B: 4,     // Drama: Duration 11 - 20 min
@@ -24,9 +25,9 @@ export const LEGACY_CREATIVE_POINT_CONFIG: Record<string, number> = {
 /** Video Creative point config (from H2 2026 onward) */
 export const CREATIVE_POINT_CONFIG: Record<string, number> = {
     S1: 3,      // Bumper Ads (6s)
-    S2A: 2,     // Gen Hook Prompt to video
-    S2C: 2,     // Gen Hook Prompt to video + voice character sync
-    S2B: 2.5,   // Gen Hook Image to video
+    S2A: 1,     // Gen Hook Prompt to video
+    S2C: 1.5,   // Gen Hook Prompt to video + voice character sync
+    S2B: 2,     // Gen Hook Image to video
     S3A: 2,     // Json_Button
     S3B: 5,     // Json_Tutorial
     S4: 3,      // UGC
@@ -34,6 +35,7 @@ export const CREATIVE_POINT_CONFIG: Record<string, number> = {
     S6: 7,      // Source + Roto/Tracking
     S7: 10,     // Quay dung + Roto/Tracking
     S7A: 5,     // Quay dung dang A
+    S7B: 3,     // Quay dung source in app
     S8: 48,     // Video HomePage
     S9A: 2.5,   // Drama: Duration < 10 min
     S9B: 4,     // Drama: Duration 11 - 20 min

@@ -134,6 +134,7 @@ export default function TaskTable({ doneTasks, notDoneTasks, showOverdueOnly = f
             S6: 'bg-red-500/20 text-red-300',
             S7: 'bg-pink-500/20 text-pink-300',
             S7A: 'bg-rose-500/20 text-rose-300',
+            S7B: 'bg-amber-500/20 text-amber-300',
             S8: 'bg-purple-500/20 text-purple-300',
             S9A: 'bg-indigo-500/20 text-indigo-300',
             S9B: 'bg-violet-500/20 text-violet-300',
