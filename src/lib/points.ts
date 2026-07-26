@@ -1,11 +1,9 @@
-// Point utilities — re-exports constants and provides helpers
-import { CREATIVE_POINT_CONFIG } from './constants'
+import { CREATIVE_POINT_CONFIG, getCreativePointValue } from './constants'
 
 export { CREATIVE_POINT_CONFIG as POINT_CONFIG }
 
-export function calculatePoints(videoType: string, videoCount: number): number {
-    const points = CREATIVE_POINT_CONFIG[videoType] || 0
-    return videoCount * points
+export function calculatePoints(videoType: string, videoCount: number, dueDate?: string | null): number {
+    return videoCount * getCreativePointValue(videoType, dueDate)
 }
 
 export function getVideoTypeLabel(videoType: string): string {

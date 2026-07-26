@@ -3,9 +3,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import {
     ASANA_API_BASE,
     CREATIVE_POINT_CONFIG,
-    CREATIVE_POINT_RULE_H2_START_DATE,
     DESIGN_POINT_CONFIG,
-    LEGACY_CREATIVE_POINT_CONFIG,
+    getCreativePointValue,
 } from '@/lib/constants'
 
 export const dynamic = 'force-dynamic'
@@ -40,16 +39,7 @@ function getCreativePointsForSync(
     videoCount: number,
     dueDate: string | null
 ) {
-    if (!videoType) {
-        return 0
-    }
-
-    const pointConfig =
-        dueDate && dueDate < CREATIVE_POINT_RULE_H2_START_DATE
-            ? LEGACY_CREATIVE_POINT_CONFIG
-            : CREATIVE_POINT_CONFIG
-
-    return (pointConfig[videoType] || 0) * videoCount
+    return getCreativePointValue(videoType, dueDate) * videoCount
 }
 
 function getProjectConfig(projectType: ProjectType) {
